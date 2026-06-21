@@ -19,5 +19,7 @@ Overview & route map → [README.md](README.md).
 - `.next/**` — build output.
 - `src/vendor/**` — vendored shared contracts + UI; see root CLAUDE.md.
 
-## More
-[docs/](docs/) · [specs/](specs/) · [INSIGHTS.md](INSIGHTS.md)
+## Read when (instruction, not a footnote)
+- need design/architecture context → [docs/](docs/)
+- changing UI contracts or behaviour → [specs/](specs/)
+- before any non-trivial change → [INSIGHTS.md](INSIGHTS.md) (gotchas + past decisions)
