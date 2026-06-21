@@ -1,0 +1,3 @@
+# client — docs
+
+Human prose / architecture notes. See `../CLAUDE.md` for the map.
