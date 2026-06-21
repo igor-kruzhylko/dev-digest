@@ -71,6 +71,14 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // Reviews carry no token/cost data; the run that produced them does. Join by
+  // run_id so the verdict row can show what that run cost.
+  const runById = React.useMemo(() => {
+    const m = new Map<string, RunSummary>();
+    for (const r of prRuns ?? []) if (r.run_id) m.set(r.run_id, r);
+    return m;
+  }, [prRuns]);
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -154,18 +162,25 @@ export function FindingsTab({
         )
       ) : (
         prId &&
-        runs.map((review, i) => (
-          <ReviewRunAccordion
-            key={review.id}
-            review={review}
-            prId={prId}
-            defaultOpen={i === 0}
-            repoFullName={repoFullName}
-            headSha={headSha}
-            targetRunId={target?.runId ?? null}
-            targetNonce={target?.n ?? 0}
-          />
-        ))
+        runs.map((review, i) => {
+          const run = review.run_id ? runById.get(review.run_id) : undefined;
+          return (
+            <ReviewRunAccordion
+              key={review.id}
+              review={review}
+              prId={prId}
+              defaultOpen={i === 0}
+              repoFullName={repoFullName}
+              headSha={headSha}
+              targetRunId={target?.runId ?? null}
+              targetNonce={target?.n ?? 0}
+              costUsd={run?.cost_usd ?? null}
+              tokensIn={run?.tokens_in ?? null}
+              tokensOut={run?.tokens_out ?? null}
+              runStatus={run?.status ?? null}
+            />
+          );
+        })
       )}
     </section>
   );
