@@ -21,6 +21,7 @@ Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:lin
 
 ## Decisions
 <!-- decisions with the reason behind them -->
+- 2026-06-22 — PR list COST column (`PrMeta.cost_usd` from `GET /repos/:id/pulls`) is the SUM of `cost_usd` over ALL completed (`status='done'`) runs for the PR, NOT the latest run's cost (supersedes the 2026-06-21 latest-run choice). It is a read-time aggregate (JS sum over the same `IN` query, no `orderBy`/dedup), so deleting a run from the timeline subtracts its cost on the next fetch — no stored/denormalized total to drift. Skip runs with null/non-finite `cost_usd`; a PR with completed runs but no known cost stays `null` → UI renders "—". Because the total spans runs, `useDeleteRun` must also invalidate the `["pulls"]` query, not just `pr-runs`/`reviews` (server/src/modules/pulls/routes.ts:120, client/src/lib/hooks/reviews.ts:66).
 
 ## Recurring Errors & Fixes
 <!-- errors that keep coming back + the fix -->
