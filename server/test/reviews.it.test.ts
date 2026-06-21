@@ -201,6 +201,8 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     const trace = (await app.inject({ method: 'GET', url: `/runs/${runId}/trace` })).json();
     expect(trace.config.model).toBe('gpt-4.1');
     expect(trace.stats.grounding).toBe('1/2 passed');
+    // Run Cost Badge: cost is threaded from the LLM layer into the trace stats.
+    expect(trace.stats.cost_usd).toBe(0.001);
     expect(trace.log.length).toBeGreaterThan(0);
 
     // agent_runs row populated for A5 to aggregate
@@ -208,6 +210,11 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.status).toBe('done');
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
+    // Run Cost Badge: the billed cost is persisted on the run row + exposed via
+    // GET /pulls/:id/runs.
+    expect(run!.costUsd).toBe(0.001);
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs[0].cost_usd).toBe(0.001);
 
     await app.close();
   });
