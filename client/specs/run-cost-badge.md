@@ -51,8 +51,8 @@ unknown cost is always `—`.
 
 1. **PR list COST column** (`compact`) — [pulls/page.tsx](../src/app/repos/[repoId]/pulls/page.tsx)
    header + [PRRow.tsx](../src/app/repos/[repoId]/pulls/_components/PRRow/PRRow.tsx)
-   cell. Source: `PrMeta.cost_usd` (latest completed run). Add `"cost"` to
-   `COLUMN_KEYS`, widen `GRID`, add `list.columns.cost` i18n key.
+   cell. Source: `PrMeta.cost_usd` (sum of all completed runs for the PR). Add
+   `"cost"` to `COLUMN_KEYS`, widen `GRID`, add `list.columns.cost` i18n key.
 2. **PR Detail verdict row** (`detailed`) — in
    [VerdictBanner.tsx](../src/app/repos/[repoId]/pulls/[number]/_components/VerdictBanner/VerdictBanner.tsx)
    `titleRow`. The page joins `prRuns` (`RunSummary[]`) by `review.run_id` and

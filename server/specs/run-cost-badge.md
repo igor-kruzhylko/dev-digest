@@ -50,11 +50,12 @@ hand into `client/src/vendor/shared/` (no auto-sync).
 - `GET /pulls/:id/runs` (`RunSummary[]`) and `GET /runs/:id/trace` (`RunTrace`)
   pick up the new fields automatically once the repository mapper + trace stats
   carry them.
-- `GET /repos/:id/pulls` (`PrMeta[]`) — `cost_usd` is the **latest completed
-  run's** cost for that PR. Computed on read exactly like the existing
-  latest-review SCORE join: one `IN` query over `agent_runs` filtered to
-  `status = 'done'`, ordered `ran_at DESC`; first row seen per `pr_id` wins.
-  PRs with no completed run → `cost_usd: null`.
+- `GET /repos/:id/pulls` (`PrMeta[]`) — `cost_usd` is the **sum of all completed
+  runs'** cost for that PR. Computed on read: one `IN` query over `agent_runs`
+  filtered to `status = 'done'`, then a JS sum of each row's `cost_usd` per
+  `pr_id` (rows with a null/non-finite `cost_usd` are skipped). It is a read-time
+  aggregate, so deleting a run subtracts its cost on the next fetch — no stored
+  total. PRs with no completed run that has a known cost → `cost_usd: null`.
 
 ## Out of scope
 

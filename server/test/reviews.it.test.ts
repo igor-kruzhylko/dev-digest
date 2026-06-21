@@ -219,6 +219,41 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('PR list COST is the SUM of all completed runs, and deleting a run lowers it', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+
+    // Two completed runs with known costs, plus a done run with no cost and a
+    // failed run — only the two known-cost done runs should count toward the sum.
+    const [runA] = await pg.handle.db
+      .insert(t.agentRuns)
+      .values({ workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1', status: 'done', costUsd: 0.001 })
+      .returning();
+    await pg.handle.db
+      .insert(t.agentRuns)
+      .values({ workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1', status: 'done', costUsd: 0.002 });
+    await pg.handle.db
+      .insert(t.agentRuns)
+      .values({ workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1', status: 'done', costUsd: null });
+    await pg.handle.db
+      .insert(t.agentRuns)
+      .values({ workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1', status: 'failed', costUsd: 0.999 });
+
+    const findPr = async () => {
+      const list = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+      return list.find((p: { id: string; cost_usd: number | null }) => p.id === pr.id);
+    };
+
+    expect((await findPr()).cost_usd).toBeCloseTo(0.003, 6);
+
+    // Deleting one run subtracts its cost on the next read (read-time aggregate).
+    const del = await app.inject({ method: 'DELETE', url: `/runs/${runA!.id}` });
+    expect(del.json().ok).toBe(true);
+    expect((await findPr()).cost_usd).toBeCloseTo(0.002, 6);
+
+    await app.close();
+  });
+
   it('dual-provider structured output: anthropic provider returns the same Review shape', async () => {
     const app = await appWith(REVIEW_FIXTURE, 'anthropic');
     const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
