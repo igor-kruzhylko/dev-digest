@@ -22,4 +22,4 @@ and feeds project context into reviews. Pipeline + facade detail → [README.md]
 - touching the pipeline (`walk → ast-grep → import graph → rank → repo-map`) or the facade → [README.md](README.md) (full diagram + facade methods — single source of truth, don't restate it here)
 - need design context → [docs/](docs/)
 - changing facade signatures or DB shape → [specs/](specs/)
-- before any non-trivial change → [INSIGHTS.md](INSIGHTS.md) (gotchas + past decisions)
+- before any non-trivial change → [../../../INSIGHTS.md](../../../INSIGHTS.md) (server insights — repo-intel logs there too)
