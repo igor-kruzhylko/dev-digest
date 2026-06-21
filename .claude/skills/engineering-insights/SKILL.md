@@ -12,10 +12,20 @@ Append durable, non-obvious learnings to the right module's `INSIGHTS.md`.
 - **As you go**: the moment something non-obvious surfaces — capture it, don't wait for the end.
 - **Skip trivia**: if it's obvious to anyone reading the code, don't write it.
 
+## What to capture
+Eight categories — each maps 1:1 to a `##` section in `INSIGHTS.md`. Don't infer them from the file; use this list.
+- **What Works** — an approach/solution that worked and is worth reusing.
+- **What Doesn't Work** — a dead end or antipattern to avoid (highest-value; don't skip it).
+- **Codebase Patterns** — a convention or architectural choice specific to this module.
+- **Tool & Library Notes** — a dependency quirk, version gotcha, or required flag.
+- **Decisions** — a choice made *with the reason behind it* (X over Y because Z).
+- **Recurring Errors & Fixes** — an error that keeps coming back, plus the fix.
+- **Session Notes** — a dated summary of what a session changed/discovered.
+- **Open Questions** — something still unresolved, worth revisiting.
+
 ## Where
 Write to the `INSIGHTS.md` of the module whose files the task touched — `server/`, `client/`,
-`reviewer-core/`, `e2e/`. There are exactly these four; changes anywhere under `server/`
-(including `server/src/modules/repo-intel/`) go to `server/INSIGHTS.md`. Touched several
+`reviewer-core/`, `e2e/`. There are exactly these four; changes anywhere under `server/`. Touched several
 modules → one entry in each, in its own file.
 
 ## How
@@ -24,8 +34,7 @@ modules → one entry in each, in its own file.
   - Contradicts an existing entry → append a new dated note that supersedes it (don't edit the old one).
   - Genuinely new → append it.
 - **Append-only, newest on top** inside the matching `##` section. Never overwrite an existing entry.
-- Pick the section: What Works · What Doesn't Work · Codebase Patterns · Tool & Library Notes ·
-  Decisions · Recurring Errors & Fixes · Session Notes · Open Questions.
+- File it under the matching category above (one `##` section each).
 - Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:line)`.
 - Be specific and actionable read cold months later, not vague.
   - Bad: `async can be tricky`.
