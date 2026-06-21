@@ -38,5 +38,6 @@ so a change must be applied to every copy by hand. Edit contracts here, not at c
 ## Docs convention (applies to every package)
 - `README.md` — overview · `docs/` — human prose / architecture · `specs/` — formal specs / e2e flows · `INSIGHTS.md` — gotchas & decisions log.
 
-## Docs
-[docs/agent-prompts/](docs/agent-prompts/)
+## Read when (instruction, not a footnote — follow the link when the trigger matches)
+- writing/editing reviewer agent prompts → [docs/agent-prompts/](docs/agent-prompts/)
+- setting up or debugging tests/CI → [TESTING.md](TESTING.md)

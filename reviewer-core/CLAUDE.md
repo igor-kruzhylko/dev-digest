@@ -18,5 +18,7 @@ Pipeline detail → [README.md](README.md).
 - Entry point: `reviewPullRequest` in `src/review/run.ts`. The grounding gate
   (`src/grounding.ts`) mechanically drops findings that don't cite the diff — keep it mandatory.
 
-## More
-[docs/](docs/) · [specs/](specs/) · [INSIGHTS.md](INSIGHTS.md)
+## Read when (instruction, not a footnote)
+- need pipeline/design context → [docs/](docs/)
+- changing the engine's I/O contract or output shape → [specs/](specs/)
+- before any non-trivial change → [INSIGHTS.md](INSIGHTS.md) (gotchas + past decisions)
