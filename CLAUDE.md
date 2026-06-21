@@ -41,3 +41,4 @@ so a change must be applied to every copy by hand. Edit contracts here, not at c
 ## Read when (instruction, not a footnote — follow the link when the trigger matches)
 - writing/editing reviewer agent prompts → [docs/agent-prompts/](docs/agent-prompts/)
 - setting up or debugging tests/CI → [TESTING.md](TESTING.md)
+- hit something non-obvious, or wrapping up a non-trivial task → run `/engineering-insights` to append the learning to the touched module's `INSIGHTS.md`. Do not skip the wrap-up.
