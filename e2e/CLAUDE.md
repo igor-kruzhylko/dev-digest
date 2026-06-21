@@ -13,5 +13,6 @@ Overview → [README.md](README.md).
 - Flows are JSON specs in [specs/](specs/) (`NN-name.flow.json`), run in order.
 - Deterministic by design — no real LLM calls; needs Postgres + API + web up.
 
-## More
-[docs/](docs/) · [INSIGHTS.md](INSIGHTS.md)
+## Read when (instruction, not a footnote)
+- need setup/design context → [docs/](docs/)
+- before any non-trivial change → [INSIGHTS.md](INSIGHTS.md) (gotchas + past decisions)

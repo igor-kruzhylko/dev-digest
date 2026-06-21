@@ -18,9 +18,8 @@ and feeds project context into reviews. Pipeline + facade detail → [README.md]
   (into `../reviews/run-executor.ts`). Other facade methods exist for later lessons — don't assume they're live.
 - Gated by `REPO_INTEL_ENABLED` (global) + per-agent `repo_intel` flag.
 
-## Pipeline
-`pipeline/{full,incremental}.ts` → `walk → ast-grep → import graph → rank → repo-map`,
-persisted to Postgres (symbols · references · file_edges · file_rank · repo_map_cache).
-
-## More
-[docs/](docs/) · [specs/](specs/) · [INSIGHTS.md](INSIGHTS.md)
+## Read when (instruction, not a footnote)
+- touching the pipeline (`walk → ast-grep → import graph → rank → repo-map`) or the facade → [README.md](README.md) (full diagram + facade methods — single source of truth, don't restate it here)
+- need design context → [docs/](docs/)
+- changing facade signatures or DB shape → [specs/](specs/)
+- before any non-trivial change → [INSIGHTS.md](INSIGHTS.md) (gotchas + past decisions)

@@ -26,5 +26,7 @@ Overview → [README.md](README.md).
 - `src/vendor/**` — vendored contracts; see root CLAUDE.md.
 - `clones/**` — third-party repos under review.
 
-## More
-[docs/](docs/) · [specs/](specs/) · [INSIGHTS.md](INSIGHTS.md)
+## Read when (instruction, not a footnote)
+- need design/architecture context → [docs/](docs/)
+- changing API contracts or behaviour → [specs/](specs/)
+- before any non-trivial change → [INSIGHTS.md](INSIGHTS.md) (gotchas + past decisions)
