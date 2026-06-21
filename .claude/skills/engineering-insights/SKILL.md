@@ -19,8 +19,11 @@ Write to the `INSIGHTS.md` of the module whose files the task touched — `serve
 modules → one entry in each, in its own file.
 
 ## How
-- **Append-only, newest on top** inside the matching `##` section. Never overwrite an existing
-  entry; correct a stale one by appending a new dated note that supersedes it.
+- **Read the target `INSIGHTS.md` first**, before writing anything. Then decide:
+  - Already covered by an existing entry → don't append (no duplicates).
+  - Contradicts an existing entry → append a new dated note that supersedes it (don't edit the old one).
+  - Genuinely new → append it.
+- **Append-only, newest on top** inside the matching `##` section. Never overwrite an existing entry.
 - Pick the section: What Works · What Doesn't Work · Codebase Patterns · Tool & Library Notes ·
   Decisions · Recurring Errors & Fixes · Session Notes · Open Questions.
 - Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:line)`.
