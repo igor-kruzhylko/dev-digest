@@ -1,0 +1,11 @@
+{
+  "name": "devdigest/onion-architecture",
+  "version": "0.1.0",
+  "private": true,
+  "summary": "Enforces DevDigest's Onion / Ports-and-Adapters layering for backend code in server/ and reviewer-core/. Use when adding or editing a feature module (the routes.ts → service.ts → repository.ts triple), writing or changing an adapter, defining a shared contract or port interface, wiring the DI container, or deciding WHERE backend code belongs. Covers the dependency rule (all coupling points inward to the core), keeping reviewer-core pure (no I/O), Fastify as transport-only, Drizzle confined to repositories, Zod contracts living in @devdigest/shared, resolving concretes only in the composition root, and mechanical enforcement via dependency-cruiser. Trigger terms: onion architecture, layering, ports and adapters, hexagonal, dependency rule, where should this go, service vs repository, adapter, port, DI container, composition root, clean architecture, decouple, can this import.",
+  "skills": {
+    "onion-architecture": {
+      "path": "SKILL.md"
+    }
+  }
+}
