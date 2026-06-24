@@ -1,0 +1,4 @@
+[
+  { "query": "my components/ folder has like 80 files in it now and i cant find anything. whats a saner way to organize a react codebase this size", "should_trigger": true },
+  { "query": "write me a react testing library test for this LoginForm that checks the error shows when the password is empty", "should_trigger": false }
+]

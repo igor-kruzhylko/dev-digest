@@ -1,0 +1,23 @@
+[
+  { "query": "i've got this UserDashboard.tsx thats like 600 lines now — it fetches the data, holds all the filter state, AND renders the charts and a table. feels gross. how should i break this up?", "should_trigger": true },
+  { "query": "where do you usually put constants in a react app? i have a bunch of status strings and hex color values scattered around as magic strings rn", "should_trigger": true },
+  { "query": "should formatCurrency and this date-parsing thing be a custom hook or just a plain helper function? they dont use any state, just transform data in and out", "should_trigger": true },
+  { "query": "starting a new next.js 15 project with the app router. how should i lay out the folders so it doesnt turn into spaghetti as it grows — feature folders, or split by type?", "should_trigger": true },
+  { "query": "my components/ folder has like 80 files in it now and i cant find anything anymore. whats a saner way to organize a react codebase this size", "should_trigger": true },
+  { "query": "in next app router this product page needs an onClick and useState for the quantity selector but it also fetches the product on the server. do i just slap 'use client' on the whole page component?", "should_trigger": true },
+  { "query": "the team keeps arguing about whether business logic belongs in the component, a hook, or a separate utils file. is there a sensible rule for deciding?", "should_trigger": true },
+  { "query": "is it fine to colocate a component inside its route folder in next.js, or should everything live in a top-level components dir? and when does something graduate to shared?", "should_trigger": true },
+  { "query": "refactoring our react app and the naming is all over the place. what convention should i use for component files, folders, hooks and constants so its consistent?", "should_trigger": true },
+  { "query": "i have a bunch of route-specific helper components in my next dashboard. how do i keep them next to the route without next trying to turn them into pages?", "should_trigger": true },
+
+  { "query": "in our fastify server where should this go — i've got a new endpoint that creates a review run. routes vs service vs repository, and can the service import drizzle directly?", "should_trigger": false },
+  { "query": "my useEffect runs twice on mount and the cleanup isnt firing right, and i think i've got a stale closure over `count`. whats actually going on here?", "should_trigger": false },
+  { "query": "how do i set up generateMetadata for SEO on a next.js product page so the title and og:image come from the fetched product?", "should_trigger": false },
+  { "query": "write me a react testing library test for this LoginForm that checks the error message shows up when the password field is left empty", "should_trigger": false },
+  { "query": "should i use css modules or styled-components for our buttons, and where does the global/reset css go in a next app?", "should_trigger": false },
+  { "query": "designing the postgres table for storing PR review comments — what columns and indexes do i need, and should comment threads be their own table?", "should_trigger": false },
+  { "query": "i need a generic typescript utility type that makes all nested properties optional and infers the return type of this function. help me with the type-level stuff", "should_trigger": false },
+  { "query": "define a zod schema for this api request body — an email, an optional bio string, and a discriminated union on the `type` field", "should_trigger": false },
+  { "query": "this list re-renders the whole thing on every keystroke in the search box. should i wrap it in memo, use useCallback, or what?", "should_trigger": false },
+  { "query": "whats the best folder structure for a vue 3 project with pinia stores and composables?", "should_trigger": false }
+]
