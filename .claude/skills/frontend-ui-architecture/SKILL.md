@@ -10,9 +10,10 @@ description: >-
   go?", "is this component too big?", "should this be a hook or a util?", "how do I
   structure this folder?", "where do constants belong?", "should this be a server or
   client component?" — even if the user never says the word "architecture". This skill
-  is about structure and organization, NOT about React API usage, hooks rules, or
-  general best practices (other skills cover those).
-version: 1.0.0
+  is about code and folder structure and where logic belongs — NOT about React/Next
+  API usage or hooks rules, styling/CSS approach (CSS-in-JS vs CSS Modules, where
+  stylesheets go), build/tooling setup, or which library to pick (other skills cover those).
+version: 1.0.1
 ---
 
 # Frontend UI Architecture

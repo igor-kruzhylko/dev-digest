@@ -1,0 +1,6 @@
+[
+  { "query": "should i use css modules or styled-components for our buttons, and where does the global/reset css go in a next app?", "should_trigger": false },
+  { "query": "where do you usually put constants in a react app? i have a bunch of status strings and hex color values scattered around as magic strings rn", "should_trigger": true },
+  { "query": "starting a new next.js 15 project with the app router. how should i lay out the folders so it doesnt turn into spaghetti as it grows — feature folders, or split by type?", "should_trigger": true },
+  { "query": "i've got this UserDashboard.tsx thats like 600 lines now — it fetches the data, holds all the filter state, AND renders the charts and a table. feels gross. how should i break this up?", "should_trigger": true }
+]
