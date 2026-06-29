@@ -5,8 +5,9 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { SeverityFilterBar } from "../SeverityFilterBar";
 import { s } from "./styles";
-import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
+import type { FindingRecord, ReviewRecord, RunSummary, PrCommit, Severity } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
 
 interface FindingsTabProps {
@@ -70,6 +71,16 @@ export function FindingsTab({
   const handleGoToReview = useCallback((runId: string) => {
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
+
+  // PR-wide severity filter: one bar over all runs narrows every accordion to a
+  // single severity and hides runs that have none of it. Counts are aggregated
+  // across all runs (independent of each panel's hide-low-confidence toggle).
+  const [sevFilter, setSevFilter] = React.useState<Severity | null>(null);
+  const allFindings = React.useMemo(() => runs.flatMap((r) => r.findings), [runs]);
+  const visibleRuns = React.useMemo(
+    () => (sevFilter ? runs.filter((r) => r.findings.some((f) => f.severity === sevFilter)) : runs),
+    [runs, sevFilter],
+  );
 
   // Reviews carry no token/cost data; the run that produced them does. Join by
   // run_id so the verdict row can show what that run cost.
@@ -152,6 +163,9 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
+      {allFindings.length > 0 && (
+        <SeverityFilterBar findings={allFindings} active={sevFilter} onChange={setSevFilter} />
+      )}
       {runs.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
@@ -162,7 +176,7 @@ export function FindingsTab({
         )
       ) : (
         prId &&
-        runs.map((review, i) => {
+        visibleRuns.map((review, i) => {
           const run = review.run_id ? runById.get(review.run_id) : undefined;
           return (
             <ReviewRunAccordion
@@ -178,6 +192,7 @@ export function FindingsTab({
               tokensIn={run?.tokens_in ?? null}
               tokensOut={run?.tokens_out ?? null}
               runStatus={run?.status ?? null}
+              severityFilter={sevFilter}
             />
           );
         })

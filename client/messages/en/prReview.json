@@ -31,6 +31,9 @@
     "noMatchTitle": "No findings match",
     "noMatchBody": "Adjust the filters above, or run a review to generate findings."
   },
+  "severityFilter": {
+    "all": "All"
+  },
   "runReview": {
     "runAll": "Run all enabled agents",
     "configureAgents": "Configure agents…",

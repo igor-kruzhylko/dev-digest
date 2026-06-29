@@ -7,7 +7,7 @@
 
 import React from "react";
 import { Icon, Badge } from "@devdigest/ui";
-import type { ReviewRecord, Verdict } from "@devdigest/shared";
+import type { ReviewRecord, Verdict, Severity } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
 import { useDeleteReview } from "../../../../../../../lib/hooks/reviews";
@@ -35,6 +35,7 @@ export function ReviewRunAccordion({
   tokensIn = null,
   tokensOut = null,
   runStatus = null,
+  severityFilter = null,
 }: {
   review: ReviewRecord;
   prId: string;
@@ -50,6 +51,7 @@ export function ReviewRunAccordion({
   tokensIn?: number | null;
   tokensOut?: number | null;
   runStatus?: string | null;
+  severityFilter?: Severity | null;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -60,6 +62,10 @@ export function ReviewRunAccordion({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetRunId, targetNonce, review.run_id]);
+  // A severity filter only keeps runs that match — open them so the hits show.
+  React.useEffect(() => {
+    if (severityFilter) setOpen(true);
+  }, [severityFilter]);
   const del = useDeleteReview(prId);
   const findings = review.findings;
   const blockers = findings.filter((f) => f.severity === "CRITICAL" && !f.dismissed_at).length;
@@ -165,6 +171,7 @@ export function ReviewRunAccordion({
             prId={prId}
             repoFullName={repoFullName}
             headSha={headSha}
+            severityFilter={severityFilter}
           />
         </div>
       )}
