@@ -6,6 +6,28 @@ import type { FindingRow, PullRow } from '../../../db/rows.js';
 
 export type ReviewRow = typeof t.reviews.$inferSelect;
 
+// ---- list aggregates (PR list) --------------------------------------------
+
+/**
+ * Latest-review SCORE per PR (kind='review'), for the PR-list score ring.
+ * One IN-query + JS grouping (newest-first → first seen per PR wins). PRs with
+ * no review are absent from the map.
+ */
+export async function latestReviewScoreByPrIds(
+  db: Db,
+  prIds: string[],
+): Promise<Map<string, number | null>> {
+  const out = new Map<string, number | null>();
+  if (prIds.length === 0) return out;
+  const rows = await db
+    .select({ prId: t.reviews.prId, score: t.reviews.score })
+    .from(t.reviews)
+    .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
+    .orderBy(desc(t.reviews.createdAt));
+  for (const rv of rows) if (!out.has(rv.prId)) out.set(rv.prId, rv.score);
+  return out;
+}
+
 // ---- reviews + findings ---------------------------------------------------
 
 export async function insertReview(

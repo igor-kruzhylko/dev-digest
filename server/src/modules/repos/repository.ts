@@ -77,6 +77,14 @@ export class RepoRepository {
       .where(eq(t.repos.id, repoId));
   }
 
+  /** Bump `last_polled_at` only (manual poll sync) — no clone path change. */
+  async touchPolled(repoId: string): Promise<void> {
+    await this.db
+      .update(t.repos)
+      .set({ lastPolledAt: new Date() })
+      .where(eq(t.repos.id, repoId));
+  }
+
   async remove(workspaceId: string, id: string): Promise<boolean> {
     const deleted = await this.db
       .delete(t.repos)

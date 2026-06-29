@@ -1,7 +1,33 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
+
+// ---- list aggregates (PR list) --------------------------------------------
+
+/**
+ * TOTAL billed USD per PR: the SUM of `cost_usd` over all COMPLETED ('done')
+ * runs. Read-time aggregate (no stored total to drift). A done run's cost may be
+ * null/non-finite (provider returned no cost) — those are skipped, so a PR with
+ * completed-but-unpriced runs is absent from the map (client renders "—").
+ */
+export async function totalRunCostByPrIds(
+  db: Db,
+  prIds: string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (prIds.length === 0) return out;
+  const rows = await db
+    .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
+    .from(t.agentRuns)
+    .where(and(inArray(t.agentRuns.prId, prIds), eq(t.agentRuns.status, 'done')));
+  for (const run of rows) {
+    if (!run.prId) continue;
+    if (run.costUsd == null || !Number.isFinite(run.costUsd)) continue;
+    out.set(run.prId, (out.get(run.prId) ?? 0) + run.costUsd);
+  }
+  return out;
+}
 
 // ---- in-flight / history --------------------------------------------------
 
