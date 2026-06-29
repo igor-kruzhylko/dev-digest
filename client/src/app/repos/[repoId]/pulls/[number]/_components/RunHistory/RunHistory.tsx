@@ -5,8 +5,7 @@ import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
 import type { RunSummary, PrCommit, Finding } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/RunCostBadge";
-import { HoverCard } from "@/components/HoverCard";
-import { FindingsHintContent, SeverityCounts } from "@/components/FindingsHint";
+import { FindingsHint } from "@/components/FindingsHint";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -165,21 +164,13 @@ export function RunHistory({
             {t(`runStatus.${o.key}`)}
           </Badge>
         );
-        const findingsStats = runFindings.length > 0 ? (
-          <HoverCard
+        const findingsStats = (
+          <FindingsHint
+            findings={runFindings}
+            repoFullName={repoFullName}
+            headSha={headSha}
             align="left"
-            content={
-              <FindingsHintContent
-                findings={runFindings}
-                repoFullName={repoFullName}
-                headSha={headSha}
-              />
-            }
-          >
-            <SeverityCounts findings={runFindings} />
-          </HoverCard>
-        ) : (
-          <SeverityCounts findings={[]} />
+          />
         );
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
@@ -262,4 +253,5 @@ export function RunHistory({
     </div>
   );
 }
+
 
