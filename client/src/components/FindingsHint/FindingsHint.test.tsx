@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { Finding } from "@devdigest/shared";
-import { SeverityCounts, FindingsHintContent } from "./FindingsHint";
+import { SeverityCounts, FindingsHintContent, FindingsHint } from "./FindingsHint";
 
 afterEach(cleanup);
 
@@ -53,5 +53,19 @@ describe("FindingsHintContent", () => {
   it("renders nothing when there are no findings", () => {
     const { container } = render(<FindingsHintContent findings={[]} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("FindingsHint", () => {
+  it("clicking a severity opens a popover filtered to that severity", () => {
+    render(<FindingsHint findings={FINDINGS} />);
+
+    fireEvent.click(screen.getByTitle("1 warning"));
+
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(screen.getByText("1 finding")).toBeInTheDocument();
+    expect(screen.getByText("N+1 query")).toBeInTheDocument();
+    expect(screen.queryByText("Hardcoded secret")).not.toBeInTheDocument();
+    expect(screen.queryByText("Extract magic number")).not.toBeInTheDocument();
   });
 });

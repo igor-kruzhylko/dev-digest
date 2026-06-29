@@ -80,14 +80,15 @@ export async function deleteAgentRun(
   workspaceId: string,
   runId: string,
 ): Promise<boolean> {
-  await db
+  const reviewRows = await db
     .delete(t.reviews)
-    .where(and(eq(t.reviews.runId, runId), eq(t.reviews.workspaceId, workspaceId)));
+    .where(and(eq(t.reviews.runId, runId), eq(t.reviews.workspaceId, workspaceId)))
+    .returning({ id: t.reviews.id });
   const rows = await db
     .delete(t.agentRuns)
     .where(and(eq(t.agentRuns.id, runId), eq(t.agentRuns.workspaceId, workspaceId)))
     .returning({ id: t.agentRuns.id });
-  return rows.length > 0;
+  return rows.length > 0 || reviewRows.length > 0;
 }
 
 /** Mark a still-running run as cancelled (no-op if it already finished). */
@@ -189,3 +190,5 @@ export async function getRunTrace(db: Db, runId: string): Promise<RunTrace | und
   const [row] = await db.select().from(t.runTraces).where(eq(t.runTraces.runId, runId));
   return row ? (row.trace as RunTrace) : undefined;
 }
+
+
