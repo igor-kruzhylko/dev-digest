@@ -90,6 +90,14 @@ export function FindingsTab({
     return m;
   }, [prRuns]);
 
+  // Findings keyed by the run that produced them, so the timeline's status
+  // badge can reveal that run's findings on hover (joined by run_id).
+  const findingsByRunId = React.useMemo(() => {
+    const m: Record<string, FindingRecord[]> = {};
+    for (const r of runs) if (r.run_id) m[r.run_id] = r.findings;
+    return m;
+  }, [runs]);
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -150,6 +158,9 @@ export function FindingsTab({
           <RunHistory
             runs={prRuns ?? []}
             commits={prCommits}
+            findingsByRunId={findingsByRunId}
+            repoFullName={repoFullName}
+            headSha={headSha}
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}

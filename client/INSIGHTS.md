@@ -6,6 +6,7 @@ Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:lin
 
 ## What Works
 <!-- approaches & solutions that worked -->
+- 2026-06-29 — Flicker-free hover popover without a portal: make the panel a DOM child of the trigger wrapper and keep it flush (top:100%, NO margin gap). React `onMouseEnter`/`onMouseLeave` ignore moves between an element and its descendants, so the pointer can travel from trigger into the panel without firing leave — but a margin gap is non-descendant space and reopens the flicker. Also `stopPropagation` clicks since triggers often sit inside a clickable row (client/src/components/HoverCard/HoverCard.tsx).
 
 ## What Doesn't Work
 <!-- dead ends & antipatterns to avoid (highest-value section — don't skip it) -->
