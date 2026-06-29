@@ -3,8 +3,10 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { RunSummary, PrCommit, Finding } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/RunCostBadge";
+import { HoverCard } from "@/components/HoverCard";
+import { FindingsHintContent } from "@/components/FindingsHint";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -88,12 +90,19 @@ function tsOf(s: string | null | undefined): number {
 export function RunHistory({
   runs,
   commits = [],
+  findingsByRunId,
+  repoFullName,
+  headSha,
   onOpenTrace,
   onGoToReview,
   onDelete,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
+  /** Findings produced by each run (keyed by run_id), for the status hover hint. */
+  findingsByRunId?: Record<string, Finding[]>;
+  repoFullName?: string | null;
+  headSha?: string | null;
   /** Open the trace + log drawer for a run (the logs icon). */
   onOpenTrace: (runId: string) => void;
   /** Jump to this run's inline review accordion below (clicking the agent name). */
@@ -150,11 +159,30 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
+        const runFindings = findingsByRunId?.[r.run_id] ?? [];
+        const statusBadge = (
+          <Badge color={o.color} bg={o.bg} icon={o.icon}>
+            {t(`runStatus.${o.key}`)}
+          </Badge>
+        );
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
-            <Badge color={o.color} bg={o.bg} icon={o.icon}>
-              {t(`runStatus.${o.key}`)}
-            </Badge>
+            {runFindings.length > 0 ? (
+              <HoverCard
+                align="left"
+                content={
+                  <FindingsHintContent
+                    findings={runFindings}
+                    repoFullName={repoFullName}
+                    headSha={headSha}
+                  />
+                }
+              >
+                {statusBadge}
+              </HoverCard>
+            ) : (
+              statusBadge
+            )}
             {settled && r.score != null && <CircularScore score={r.score} size={30} stroke={3} />}
             <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>

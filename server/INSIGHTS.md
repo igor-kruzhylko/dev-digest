@@ -9,6 +9,7 @@ Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:lin
 
 ## What Doesn't Work
 <!-- dead ends & antipatterns to avoid (highest-value section — don't skip it) -->
+- 2026-06-29 — Do NOT add a REQUIRED field (or a `z.array(...).default([])`, whose zod OUTPUT type is required) to `PrMeta`: it is reused as the return type of the GitHub adapter (`listPullRequests`) and as the base of `PrDetail` (`getPullRequest` + the offline fallback in `pulls/routes.ts`), none of which can supply list-only data. Typecheck then breaks in `adapters/github/octokit.ts`, `adapters/mocks.ts`, and the PR-detail handler. List-endpoint-only fields must be optional — use `.nullish()` (matches `score`/`cost_usd`); the route fills it, everyone else omits it (server/src/vendor/shared/contracts/platform.ts:176). Remember to mirror the edit into BOTH vendored copies (server + client).
 - 2026-06-21 — Do NOT use `` import.meta.url === `file://${process.argv[1]}` `` for CLI entrypoint detection — on Windows the URL forms never match, so `pnpm db:migrate` / `pnpm db:seed` exit 0 without running. Use `isDirectRun(import.meta.url)` from `server/src/db/is-direct-run.ts` (`pathToFileURL`); the caller must pass its own `import.meta.url`, not rely on the helper's.
 
 ## Codebase Patterns
