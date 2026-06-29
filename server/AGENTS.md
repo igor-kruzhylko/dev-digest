@@ -1,0 +1,1 @@
+E:/IhorKruzhylko.Private/MyProjects/Neoversity/DevDigest/dev-digest/server/CLAUDE.md
