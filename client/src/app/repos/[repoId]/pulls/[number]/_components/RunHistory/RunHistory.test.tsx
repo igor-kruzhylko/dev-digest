@@ -3,7 +3,7 @@
  * Settled runs show finding severity stats as icons, matching the PR list.
  */
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { Finding, RunSummary } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
@@ -82,6 +82,25 @@ describe("RunHistory — outcome badge", () => {
     expect(screen.queryByText(/blockers/)).not.toBeInTheDocument();
   });
 
+
+  it("clicking a timeline severity filters that run's findings popover", () => {
+    const r = run({ status: "done", findings_count: 3, blockers: 1, score: 64 });
+    renderRuns([r], {
+      [r.run_id]: [
+        finding("Critical finding", "CRITICAL"),
+        finding("Warning finding", "WARNING"),
+        finding("Suggestion finding", "SUGGESTION"),
+      ],
+    });
+
+    fireEvent.click(screen.getByTitle("1 warning"));
+
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(screen.getByText("1 finding")).toBeInTheDocument();
+    expect(screen.getByText("Warning finding")).toBeInTheDocument();
+    expect(screen.queryByText("Critical finding")).not.toBeInTheDocument();
+    expect(screen.queryByText("Suggestion finding")).not.toBeInTheDocument();
+  });
   it("a failed run reads 'error'", () => {
     renderRuns([run({ status: "failed", error: "boom", score: null, blockers: null })]);
     expect(screen.getByText("error")).toBeInTheDocument();
@@ -92,3 +111,4 @@ describe("RunHistory — outcome badge", () => {
     expect(screen.getByText("running")).toBeInTheDocument();
   });
 });
+
