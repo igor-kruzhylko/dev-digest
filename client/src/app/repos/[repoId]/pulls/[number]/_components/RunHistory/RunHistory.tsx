@@ -6,7 +6,7 @@ import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
 import type { RunSummary, PrCommit, Finding } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/RunCostBadge";
 import { HoverCard } from "@/components/HoverCard";
-import { FindingsHintContent } from "@/components/FindingsHint";
+import { FindingsHintContent, SeverityCounts } from "@/components/FindingsHint";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -165,24 +165,25 @@ export function RunHistory({
             {t(`runStatus.${o.key}`)}
           </Badge>
         );
+        const findingsStats = runFindings.length > 0 ? (
+          <HoverCard
+            align="left"
+            content={
+              <FindingsHintContent
+                findings={runFindings}
+                repoFullName={repoFullName}
+                headSha={headSha}
+              />
+            }
+          >
+            <SeverityCounts findings={runFindings} />
+          </HoverCard>
+        ) : (
+          <SeverityCounts findings={[]} />
+        );
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
-            {runFindings.length > 0 ? (
-              <HoverCard
-                align="left"
-                content={
-                  <FindingsHintContent
-                    findings={runFindings}
-                    repoFullName={repoFullName}
-                    headSha={headSha}
-                  />
-                }
-              >
-                {statusBadge}
-              </HoverCard>
-            ) : (
-              statusBadge
-            )}
+            {statusBadge}
             {settled && r.score != null && <CircularScore score={r.score} size={30} stroke={3} />}
             <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
@@ -218,9 +219,8 @@ export function RunHistory({
                 </div>
               )}
               {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
+                <div style={{ display: "flex", alignItems: "center", minHeight: 18 }}>
+                  {findingsStats}
                 </div>
               )}
             </div>
@@ -262,3 +262,4 @@ export function RunHistory({
     </div>
   );
 }
+
