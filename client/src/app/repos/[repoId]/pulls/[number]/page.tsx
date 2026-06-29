@@ -55,6 +55,7 @@ export default function PRDetailPage() {
   // just-failed run shows up in "Run history" immediately — no page reload.
   const invalidateRunHistory = () => {
     if (prId) qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
+    qc.invalidateQueries({ queryKey: ["pulls"] });
   };
 
   const tab = search.get("tab") ?? "overview";
@@ -183,3 +184,5 @@ export default function PRDetailPage() {
     </AppShell>
   );
 }
+
+
