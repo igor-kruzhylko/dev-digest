@@ -1,1 +1,1 @@
-E:/IhorKruzhylko.Private/MyProjects/Neoversity/DevDigest/dev-digest/e2e/CLAUDE.md
+CLAUDE.md

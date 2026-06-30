@@ -1,6 +1,8 @@
 # Skills
 
-Reusable AI skills that provide specialized knowledge and workflows. Canonical location is `.claude/skills/` with a symlink at `.cursor/skills/ → ../.claude/skills` for Cursor compatibility. Shared with the team via version control.
+Reusable AI skills that provide specialized knowledge and workflows. Canonical location is `.claude/skills/`; `.cursor` and `.agents` are symlinks to `.claude` for Cursor and Codex compatibility. Package-level `AGENTS.md` files symlink to each package's `CLAUDE.md`. Shared with the team via version control.
+
+On Windows: run `git config core.symlinks true` and enable Developer Mode (or an elevated shell) so checkout creates real symlinks.
 
 ## Catalog
 

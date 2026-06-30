@@ -1,1 +1,1 @@
-E:/IhorKruzhylko.Private/MyProjects/Neoversity/DevDigest/dev-digest/reviewer-core/CLAUDE.md
+CLAUDE.md
