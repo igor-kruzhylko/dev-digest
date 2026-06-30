@@ -25,6 +25,7 @@ Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:lin
 
 ## Tool & Library Notes
 <!-- dependency quirks, version gotchas, flags -->
+- 2026-06-30 — Typecheck is not enough after vendored shared contract edits: unused DTO drift in client/src/vendor/shared/contracts/knowledge.ts compiled cleanly. Run git diff --no-index -- server/src/vendor/shared/contracts/<file> client/src/vendor/shared/contracts/<file> for every touched shared contract before wrap-up (client/src/vendor/shared/contracts/knowledge.ts:207).
 
 ## Decisions
 <!-- decisions with the reason behind them -->

@@ -16,7 +16,7 @@ constraint.
 | 6. Composition root | DI wiring; binds concretes → ports | `server/src/platform/container.ts` | everything (it's the outermost) | — (but nothing may depend *on it* except routes via `app.container`) |
 
 Supporting platform code (`server/src/platform/*`: `jobs.ts`, `sse.ts`,
-`errors.ts`, `config.ts`, `model-router.ts`, `price-book.ts`) is infrastructure
+`errors.ts`, `config.ts`, `structured.ts`, `price-book.ts`) is infrastructure
 the composition root assembles — treat it as ring 4/6, never import it into
 `reviewer-core`.
 
@@ -53,7 +53,7 @@ adapter implements and every service depends on:
 |---|---|---|
 | `GitClient` | `SimpleGitClient` | `container.git` |
 | `GitHubClient` | `OctokitGitHubClient` | `await container.github()` |
-| `LLMProvider` | `OpenAIProvider`, `AnthropicProvider`, `OpenRouterProvider` (reviewer-core) | `await container.llm(id)` |
+| `LLMProvider` | `OpenAIProvider`, `AnthropicProvider`, `OpenRouterProvider` | `await container.llm(id)` |
 | `Embedder` | `OpenAIEmbedder` | `await container.embedder()` |
 | `CodeIndex` | `RipgrepCodeIndex` | `container.codeIndex` |
 | `SecretsProvider` | `LocalSecretsProvider` | `container.secrets` |

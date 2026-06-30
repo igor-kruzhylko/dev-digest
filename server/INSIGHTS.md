@@ -25,6 +25,7 @@ Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:lin
 
 ## Tool & Library Notes
 <!-- dependency quirks, version gotchas, flags -->
+- 2026-06-30 — Typecheck is not enough after vendored shared contract edits: unused DTO drift in client/src/vendor/shared/contracts/knowledge.ts compiled cleanly. Run git diff --no-index -- server/src/vendor/shared/contracts/<file> client/src/vendor/shared/contracts/<file> for every touched shared contract before wrap-up (server/src/vendor/shared/contracts/knowledge.ts:207).
 - 2026-06-30 — The arch gate must cover module helper/executor files, not only service.ts/routes.ts: modules-no-db-outside-repository and modules-no-adapter-concrete now forbid DB internals/concrete adapters across src/modules except repositories and the documented repo-intel indexer. Use db/rows.ts for row TYPES; do not import schema from helpers/executors (server/.dependency-cruiser.cjs:50).
 - 2026-06-25 — dependency-cruiser arch gate landed (`server/.dependency-cruiser.cjs`, `reviewer-core/.dependency-cruiser.cjs`; `pnpm arch` in server). v17 quirks: `no-circular`'s `viaNot` must be a STRING/array regex, NOT `{ path }` (object form fails config validation); `tsPreCompilationDeps: true` follows TYPE-only imports too, so type cycles and type imports of banned modules get flagged — carve out legitimate ones with `pathNot` (e.g. `db/rows.ts`) rather than deleting the rule. reviewer-core has no `depcruise` dep yet; it was validated by running server's binary against it.
 
