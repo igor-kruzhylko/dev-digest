@@ -6,6 +6,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, Badge, CircularScore } from "@devdigest/ui";
 import type { Verdict } from "@devdigest/shared";
+import { RunCostBadge } from "@/components/RunCostBadge";
 import { VERDICT_META } from "./constants";
 import { s } from "./styles";
 
@@ -16,6 +17,10 @@ export function VerdictBanner({
   findingsCount,
   blockers,
   agentName,
+  costUsd = null,
+  tokensIn = null,
+  tokensOut = null,
+  runStatus = null,
 }: {
   verdict: Verdict;
   summary: string | null;
@@ -23,6 +28,11 @@ export function VerdictBanner({
   findingsCount: number;
   blockers: number;
   agentName?: string | null;
+  /** Cost/tokens of the run that produced this review. */
+  costUsd?: number | null;
+  tokensIn?: number | null;
+  tokensOut?: number | null;
+  runStatus?: string | null;
 }) {
   const t = useTranslations("prReview");
   const m = VERDICT_META[verdict] ?? VERDICT_META.comment;
@@ -44,6 +54,13 @@ export function VerdictBanner({
               {agentName}
             </Badge>
           )}
+          <RunCostBadge
+            costUsd={costUsd}
+            tokensIn={tokensIn}
+            tokensOut={tokensOut}
+            status={runStatus}
+            variant="detailed"
+          />
         </div>
         {summary && <p style={s.summary}>{summary}</p>}
       </div>

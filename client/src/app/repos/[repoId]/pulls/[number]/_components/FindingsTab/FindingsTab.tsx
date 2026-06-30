@@ -5,8 +5,9 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { SeverityFilterBar } from "../SeverityFilterBar";
 import { s } from "./styles";
-import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
+import type { FindingRecord, ReviewRecord, RunSummary, PrCommit, Severity } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
 
 interface FindingsTabProps {
@@ -71,6 +72,32 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // PR-wide severity filter: one bar over all runs narrows every accordion to a
+  // single severity and hides runs that have none of it. Counts are aggregated
+  // across all runs (independent of each panel's hide-low-confidence toggle).
+  const [sevFilter, setSevFilter] = React.useState<Severity | null>(null);
+  const allFindings = React.useMemo(() => runs.flatMap((r) => r.findings), [runs]);
+  const visibleRuns = React.useMemo(
+    () => (sevFilter ? runs.filter((r) => r.findings.some((f) => f.severity === sevFilter)) : runs),
+    [runs, sevFilter],
+  );
+
+  // Reviews carry no token/cost data; the run that produced them does. Join by
+  // run_id so the verdict row can show what that run cost.
+  const runById = React.useMemo(() => {
+    const m = new Map<string, RunSummary>();
+    for (const r of prRuns ?? []) if (r.run_id) m.set(r.run_id, r);
+    return m;
+  }, [prRuns]);
+
+  // Findings keyed by the run that produced them, so the timeline's status
+  // badge can reveal that run's findings on hover (joined by run_id).
+  const findingsByRunId = React.useMemo(() => {
+    const m: Record<string, FindingRecord[]> = {};
+    for (const r of runs) if (r.run_id) m[r.run_id] = r.findings;
+    return m;
+  }, [runs]);
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -131,6 +158,9 @@ export function FindingsTab({
           <RunHistory
             runs={prRuns ?? []}
             commits={prCommits}
+            findingsByRunId={findingsByRunId}
+            repoFullName={repoFullName}
+            headSha={headSha}
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
@@ -144,6 +174,9 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
+      {allFindings.length > 0 && (
+        <SeverityFilterBar findings={allFindings} active={sevFilter} onChange={setSevFilter} />
+      )}
       {runs.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
@@ -154,18 +187,26 @@ export function FindingsTab({
         )
       ) : (
         prId &&
-        runs.map((review, i) => (
-          <ReviewRunAccordion
-            key={review.id}
-            review={review}
-            prId={prId}
-            defaultOpen={i === 0}
-            repoFullName={repoFullName}
-            headSha={headSha}
-            targetRunId={target?.runId ?? null}
-            targetNonce={target?.n ?? 0}
-          />
-        ))
+        visibleRuns.map((review, i) => {
+          const run = review.run_id ? runById.get(review.run_id) : undefined;
+          return (
+            <ReviewRunAccordion
+              key={review.id}
+              review={review}
+              prId={prId}
+              defaultOpen={i === 0}
+              repoFullName={repoFullName}
+              headSha={headSha}
+              targetRunId={target?.runId ?? null}
+              targetNonce={target?.n ?? 0}
+              costUsd={run?.cost_usd ?? null}
+              tokensIn={run?.tokens_in ?? null}
+              tokensOut={run?.tokens_out ?? null}
+              runStatus={run?.status ?? null}
+              severityFilter={sevFilter}
+            />
+          );
+        })
       )}
     </section>
   );

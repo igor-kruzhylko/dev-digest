@@ -58,6 +58,9 @@ export class ReviewService {
 
   /** Delete a whole review run (one agent's pass) + its findings (cascade). */
   async deleteReview(workspaceId: string, reviewId: string): Promise<boolean> {
+    const review = await this.repo.getReview(reviewId);
+    if (!review || review.workspaceId !== workspaceId) return false;
+    if (review.runId) return this.repo.deleteAgentRun(workspaceId, review.runId);
     return this.repo.deleteReview(workspaceId, reviewId);
   }
 
@@ -177,3 +180,4 @@ export class ReviewService {
     return this.repo.getRunTrace(runId);
   }
 }
+

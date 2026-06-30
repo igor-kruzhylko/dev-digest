@@ -5,7 +5,10 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
+import { RunCostBadge } from "@/components/RunCostBadge";
+import { FindingsHint } from "@/components/FindingsHint";
 import type { PrMeta } from "@/lib/types";
+import { useActiveRepo } from "@/lib/repo-context";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
 import { s } from "../../styles";
@@ -13,6 +16,7 @@ import { s } from "../../styles";
 export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
   const router = useRouter();
+  const { activeRepo } = useActiveRepo();
   const [h, setH] = React.useState(false);
   const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
   const { size, lines } = sizeOf(pr);
@@ -54,9 +58,19 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         )}
       </div>
       <div>
+        <FindingsHint
+          findings={pr.findings ?? []}
+          repoFullName={activeRepo?.full_name ?? null}
+          headSha={pr.head_sha}
+        />
+      </div>
+      <div>
         <Badge dot color={st.c} bg="transparent">
           {t(`list.status.${st.labelKey}`)}
         </Badge>
+      </div>
+      <div>
+        <RunCostBadge costUsd={pr.cost_usd} variant="compact" />
       </div>
       <div style={s.updatedCell}>{relativeTime(pr.updated_at)}</div>
     </div>

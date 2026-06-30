@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
+import type { PrMeta, PrDetail, GitHubClient, PrReviewComment, Finding } from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
@@ -113,10 +113,17 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
 
     // Latest-review SCORE per PR for the list's score ring. Computed on read
     // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // grouping is cheap. The PR's findings (across all its review runs) are
+    // surfaced too, powering the FINDINGS column's per-severity counts + hover.
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { score: number | null }>();
+    const findingsByPr = new Map<string, Finding[]>();
+    // TOTAL cost per PR for the list's COST column: the SUM of cost_usd over all
+    // COMPLETED runs (read-time aggregate, so deleting a run subtracts its cost
+    // on the next fetch — no stored total to drift). A done run's cost_usd may be
+    // null (provider returned no cost); those are skipped. A PR with completed
+    // runs but no known cost stays null → the client renders "—", never "$0.00".
+    const totalCostByPr = new Map<string, number>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
         .select({ prId: t.reviews.prId, score: t.reviews.score })
@@ -126,6 +133,54 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+      }
+
+      const runRows = await container.db
+        .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
+        .from(t.agentRuns)
+        .where(and(inArray(t.agentRuns.prId, prIds), eq(t.agentRuns.status, 'done')));
+      for (const run of runRows) {
+        if (!run.prId) continue;
+        if (run.costUsd == null || !Number.isFinite(run.costUsd)) continue;
+        totalCostByPr.set(run.prId, (totalCostByPr.get(run.prId) ?? 0) + run.costUsd);
+      }
+
+      // All findings across the PR's 'review' runs, joined via reviews.pr_id.
+      // Mirrors the PR detail page, which flattens findings across every run.
+      const findingRows = await container.db
+        .select({
+          prId: t.reviews.prId,
+          id: t.findings.id,
+          severity: t.findings.severity,
+          category: t.findings.category,
+          title: t.findings.title,
+          file: t.findings.file,
+          startLine: t.findings.startLine,
+          endLine: t.findings.endLine,
+          rationale: t.findings.rationale,
+          suggestion: t.findings.suggestion,
+          confidence: t.findings.confidence,
+          kind: t.findings.kind,
+        })
+        .from(t.findings)
+        .innerJoin(t.reviews, eq(t.findings.reviewId, t.reviews.id))
+        .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')));
+      for (const f of findingRows) {
+        const list = findingsByPr.get(f.prId) ?? [];
+        list.push({
+          id: f.id,
+          severity: f.severity,
+          category: f.category,
+          title: f.title,
+          file: f.file,
+          start_line: f.startLine,
+          end_line: f.endLine,
+          rationale: f.rationale,
+          suggestion: f.suggestion,
+          confidence: f.confidence,
+          kind: f.kind,
+        } as Finding);
+        findingsByPr.set(f.prId, list);
       }
     }
 
@@ -153,6 +208,8 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        cost_usd: totalCostByPr.has(r.id) ? totalCostByPr.get(r.id)! : null,
+        findings: findingsByPr.get(r.id) ?? [],
       };
     });
   });

@@ -12,9 +12,11 @@ import {
   EvalRun,
   MemoryItem,
   RunTrace,
+  RunSummary,
   Settings,
   Repo,
   PrDetail,
+  PrMeta,
 } from '@devdigest/shared';
 
 /**
@@ -157,7 +159,7 @@ describe('AI contracts parse fixtures', () => {
   it('RunTrace (data2.jsx TRACE single-document)', () => {
     const trace = RunTrace.parse({
       config: { agent: 'Security Reviewer', version: 'v7', model: 'gpt-4.1', pr: 482, source: 'local' },
-      stats: { duration_ms: 8200, tokens_in: 14820, tokens_out: 1240, findings: 3, grounding: '3/3 passed' },
+      stats: { duration_ms: 8200, tokens_in: 14820, tokens_out: 1240, findings: 3, grounding: '3/3 passed', cost_usd: 0.06 },
       prompt_assembly: { system: 's', user: 'u' },
       tool_calls: [{ tool: 'read_file', args: "'src/config.ts'", meta: '1,240 bytes', ms: 120 }],
       raw_output: '{}',
@@ -166,8 +168,74 @@ describe('AI contracts parse fixtures', () => {
       log: [{ t: '00.00', kind: 'info', msg: 'started' }],
     });
     expect(trace.tool_calls).toHaveLength(1);
+    expect(trace.stats.cost_usd).toBe(0.06);
+  });
+
+  it('Run cost: cost_usd is required-but-nullable on RunStats / RunSummary / PrMeta', () => {
+    // null is the wire signal for "no cost data" → client renders "—".
+    expect(RunStatsCost({ cost_usd: null })).toBeNull();
+    expect(RunStatsCost({ cost_usd: 0.0013 })).toBe(0.0013);
+
+    const summary = RunSummary.parse({
+      run_id: 'r1',
+      agent_id: null,
+      agent_name: 'Security Reviewer',
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+      status: 'done',
+      error: null,
+      duration_ms: 1000,
+      tokens_in: 9119,
+      tokens_out: 1300,
+      cost_usd: 0.0013,
+      findings_count: 2,
+      grounding: '2/2 passed',
+      ran_at: '2026-06-13T20:52:51.000Z',
+      score: 38,
+      blockers: 2,
+    });
+    expect(summary.cost_usd).toBe(0.0013);
+
+    // PrMeta.cost_usd is nullish (list-only) — absent is allowed.
+    expect(() =>
+      PrMeta.parse({
+        number: 482,
+        title: 't',
+        author: 'a',
+        branch: 'b',
+        base: 'main',
+        head_sha: 'sha',
+        additions: 1,
+        deletions: 0,
+        files_count: 1,
+        status: 'needs_review',
+        cost_usd: 0.014,
+      }),
+    ).not.toThrow();
   });
 });
+
+// Helper: round-trip just the RunStats cost field.
+function RunStatsCost(partial: { cost_usd: number | null }): number | null {
+  const parsed = RunTrace.parse({
+    config: { agent: 'A', model: 'm', source: 'local' },
+    stats: {
+      duration_ms: 1,
+      tokens_in: 1,
+      tokens_out: 1,
+      findings: 0,
+      grounding: '0/0 passed',
+      cost_usd: partial.cost_usd,
+    },
+    prompt_assembly: { system: 's', user: 'u' },
+    tool_calls: [],
+    raw_output: '{}',
+    memory_pulled: [],
+    specs_read: [],
+    log: [],
+  });
+  return parsed.stats.cost_usd;
+}
 
 describe('platform DTOs', () => {
   it('Settings defaults + passthrough', () => {
