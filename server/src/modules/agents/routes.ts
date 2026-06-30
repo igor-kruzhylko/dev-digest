@@ -1,20 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
+import {
+  AgentVersionParams,
+  CreateAgentInput,
+  ProviderParams,
+  SetAgentSkillsInput,
+  UpdateAgentInput,
+} from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
 import { AgentsService } from './service.js';
-
-/** `/providers/:id` addresses a provider by name, not a uuid. */
-const ProviderParams = z.object({ id: Provider });
-
-/** `/agents/:id/versions/:version` — id is a uuid, version a positive integer. */
-const VersionParams = z.object({
-  id: z.string().uuid(),
-  version: z.coerce.number().int().positive(),
-});
 
 /**
  * A2 — agents module (owner A2).
@@ -29,43 +25,6 @@ const VersionParams = z.object({
  *   GET    /agents/:id/models       → dynamic model list for the agent's provider
  *   GET    /providers/:id/models    → dynamic model list for a provider (editor)
  */
-
-const CreateAgentBody = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  provider: Provider,
-  model: z.string().min(1),
-  system_prompt: z.string().min(1),
-  output_schema: z.unknown().optional(),
-  strategy: ReviewStrategy.optional(),
-  ci_fail_on: CiFailOn.optional(),
-  repo_intel: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
-
-const UpdateAgentBody = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  provider: Provider.optional(),
-  model: z.string().min(1).optional(),
-  system_prompt: z.string().min(1).optional(),
-  output_schema: z.unknown().optional(),
-  strategy: ReviewStrategy.optional(),
-  ci_fail_on: CiFailOn.optional(),
-  repo_intel: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
-
-/** Either set the whole ordered set (`skill_ids`) or link one (`skill_id`). */
-const SetSkillsBody = z
-  .object({
-    skill_ids: z.array(z.string().uuid()).optional(),
-    skill_id: z.string().uuid().optional(),
-    order: z.number().int().optional(),
-  })
-  .refine((b) => b.skill_ids !== undefined || b.skill_id !== undefined, {
-    message: 'Provide skill_ids (set/reorder) or skill_id (link one)',
-  });
 
 export default async function agentsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
@@ -83,7 +42,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
     return agent;
   });
 
-  app.post('/agents', { schema: { body: CreateAgentBody } }, async (req, reply) => {
+  app.post('/agents', { schema: { body: CreateAgentInput } }, async (req, reply) => {
     const { workspaceId, userId } = await getContext(app.container, req);
     const body = req.body;
     const agent = await service.create(
@@ -108,7 +67,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
 
   app.put(
     '/agents/:id',
-    { schema: { params: IdParams, body: UpdateAgentBody } },
+    { schema: { params: IdParams, body: UpdateAgentInput } },
     async (req) => {
       const { workspaceId } = await getContext(app.container, req);
       const agent = await service.update(workspaceId, req.params.id, req.body);
@@ -133,7 +92,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
 
   app.get(
     '/agents/:id/versions/:version',
-    { schema: { params: VersionParams } },
+    { schema: { params: AgentVersionParams } },
     async (req) => {
       const { workspaceId } = await getContext(app.container, req);
       const version = await service.getVersion(workspaceId, req.params.id, req.params.version);
@@ -151,7 +110,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
 
   app.post(
     '/agents/:id/skills',
-    { schema: { params: IdParams, body: SetSkillsBody } },
+    { schema: { params: IdParams, body: SetAgentSkillsInput } },
     async (req) => {
       const { workspaceId } = await getContext(app.container, req);
       const body = req.body;

@@ -11,6 +11,7 @@ module.exports = {
       to: {
         path:
           '(^|/)node_modules/(fastify|@fastify|drizzle-orm|postgres|octokit|simple-git)(/|$)' +
+          '|(^|/)node_modules/openai/(?!helpers/zod)' +
           '|^node:(fs|net|http|https|child_process)',
       },
     },

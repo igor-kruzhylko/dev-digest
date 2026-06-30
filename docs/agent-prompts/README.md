@@ -57,7 +57,7 @@ This is the most common source of confusion. The structure of the response — t
 **out of band** by the provider, not by prompt text:
 
 ```ts
-// reviewer-core/src/llm/openrouter.ts
+// server/src/adapters/llm/openrouter.ts
 response_format: { type: 'json_schema', json_schema: { name, schema, strict: true } }
 ```
 

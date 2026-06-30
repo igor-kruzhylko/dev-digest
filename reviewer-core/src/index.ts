@@ -19,8 +19,11 @@ export {
   type AssembledPrompt,
 } from './prompt.js';
 
-// Citation grounding — the mandatory mechanical gate for diff findings.
+// Citation grounding - the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
+
+// Pure unified-diff parsing shared by git adapters and persisted-patch fallback.
+export { parseUnifiedDiff } from './diff-parser.js';
 
 // Structured-output helpers (Zod → JSON Schema + parse-with-repair).
 export {
@@ -53,7 +56,3 @@ export {
   countBlockers,
   type ToReviewOptions,
 } from './output/to-review.js';
-
-// The single OpenAI-compatible structured provider (OpenRouter), shared by the
-// CI runner and the server's openrouter path. Owns session grouping + guards.
-export { OpenRouterProvider, type OpenRouterProviderOptions } from './llm/openrouter.js';

@@ -17,7 +17,7 @@ emits JS — its `build` is a type-check.
 flowchart LR
   IN["inputs<br/>diff · system prompt · repo map"] --> PROMPT["assemblePrompt()<br/>prompt.ts"]
   PROMPT --> WRAP["wrapUntrusted() + INJECTION_GUARD<br/>fence untrusted content vs prompt injection"]
-  WRAP --> LLM["LLMProvider (injected)<br/>llm/openrouter.ts"]
+  WRAP --> LLM["LLMProvider (injected)<br/>server adapter"]
   LLM --> STRUCT["structured output<br/>llm/structured.ts<br/>Zod → JSON Schema · parse-with-repair"]
   STRUCT --> GROUND["groundFindings()<br/>grounding.ts<br/>mechanical citation gate vs the diff"]
   GROUND --> OUT["Review<br/>verdict · score · grounded findings"]

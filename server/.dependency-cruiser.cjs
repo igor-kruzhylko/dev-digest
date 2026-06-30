@@ -47,6 +47,22 @@ module.exports = {
       to: { path: '(^|/)node_modules/drizzle-orm(/|$)' },
     },
     {
+      name: 'modules-no-db-outside-repository',
+      comment: 'Module application/helper code must not import db internals; use a repository. db/rows.ts is row TYPES only.',
+      severity: 'error',
+      from: { path: 'src/modules/', pathNot: '(repository\\.ts$|/repository/)' },
+      to: { path: 'src/db/', pathNot: 'src/db/rows\\.ts$' },
+    },
+    {
+      name: 'modules-no-adapter-concrete',
+      comment:
+        'Feature modules depend on ports/container, not concrete adapters. ' +
+        'EXCEPTION: repo-intel service/pipeline is the documented in-process indexer.',
+      severity: 'error',
+      from: { path: 'src/modules/', pathNot: 'src/modules/repo-intel/(service\\.ts$|pipeline/)' },
+      to: { path: 'src/adapters/' },
+    },
+    {
       name: 'no-cross-module-repository',
       comment: "A module must not import a sibling module's repository. Use container.agentsRepo / reviewRepo.",
       severity: 'error',

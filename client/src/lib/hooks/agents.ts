@@ -1,9 +1,17 @@
-/* hooks/agents.ts — React Query hooks for the A2 Agents tab + Agent Editor. */
+/* hooks/agents.ts - React Query hooks for the A2 Agents tab + Agent Editor. */
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { Agent, ModelInfo, Provider, ReviewStrategy } from "@devdigest/shared";
+import type {
+  Agent,
+  CreateAgentInput as CreateAgentBody,
+  ModelInfo,
+  Provider,
+  UpdateAgentInput as UpdateAgentBody,
+} from "@devdigest/shared";
+
+export type CreateAgentInput = CreateAgentBody;
 
 export function useAgents() {
   return useQuery({
@@ -20,17 +28,6 @@ export function useAgent(id: string | null | undefined) {
   });
 }
 
-export interface CreateAgentInput {
-  name: string;
-  description?: string;
-  provider: Provider;
-  model: string;
-  system_prompt: string;
-  output_schema?: unknown;
-  strategy?: ReviewStrategy;
-  enabled?: boolean;
-}
-
 export function useCreateAgent() {
   const qc = useQueryClient();
   return useMutation({
@@ -41,21 +38,7 @@ export function useCreateAgent() {
 
 export interface UpdateAgentInput {
   id: string;
-  patch: Partial<
-    Pick<
-      Agent,
-      | "name"
-      | "description"
-      | "provider"
-      | "model"
-      | "system_prompt"
-      | "output_schema"
-      | "strategy"
-      | "ci_fail_on"
-      | "repo_intel"
-      | "enabled"
-    >
-  >;
+  patch: UpdateAgentBody;
 }
 
 export function useUpdateAgent() {

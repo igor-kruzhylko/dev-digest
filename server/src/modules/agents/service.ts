@@ -3,10 +3,10 @@ import type {
   Agent,
   AgentSkillLink,
   AgentVersion,
-  CiFailOn,
+  CreateAgentInput,
   ModelInfo,
   Provider,
-  ReviewStrategy,
+  UpdateAgentInput,
 } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
 import { toAgentDto, toAgentVersionDto } from './helpers.js';
@@ -21,32 +21,6 @@ import { toAgentDto, toAgentVersionDto } from './helpers.js';
 
 // Re-exported for backwards compatibility; implementation lives in ./helpers.
 export { toAgentDto } from './helpers.js';
-
-export interface CreateAgentInput {
-  name: string;
-  description?: string;
-  provider: Provider;
-  model: string;
-  system_prompt: string;
-  output_schema?: unknown;
-  strategy?: ReviewStrategy;
-  ci_fail_on?: CiFailOn;
-  repo_intel?: boolean;
-  enabled?: boolean;
-}
-
-export interface UpdateAgentInput {
-  name?: string;
-  description?: string;
-  provider?: Provider;
-  model?: string;
-  system_prompt?: string;
-  output_schema?: unknown;
-  strategy?: ReviewStrategy;
-  ci_fail_on?: CiFailOn;
-  repo_intel?: boolean;
-  enabled?: boolean;
-}
 
 export class AgentsService {
   private repo: AgentsRepository;

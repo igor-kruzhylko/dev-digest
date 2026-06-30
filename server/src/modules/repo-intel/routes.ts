@@ -1,8 +1,8 @@
 /**
  * repo-intel HTTP module.
  *
- *   GET  /repos/:id/index-state  → IndexState (always works; degraded on missing data)
- *   POST /repos/:id/resync       → enqueues a RESYNC_JOB_KIND job (202 + job id):
+ *   GET  /repos/:id/index-state  -> RepoIntelState (always works; degraded on missing data)
+ *   POST /repos/:id/resync       -> enqueues a RESYNC_JOB_KIND job (202 + job id):
  *                                  fetch latest from origin + incremental reindex.
  *
  * Job-handler registration lives here: this plugin runs once at app boot and
@@ -12,31 +12,39 @@
  */
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import type { RepoIntelState } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { RepoIntelService } from './service.js';
 import { RESYNC_JOB_KIND } from './constants.js';
 import type { IndexState } from './types.js';
 
+function toRepoIntelState(state: IndexState): RepoIntelState {
+  return {
+    ...state,
+    updatedAt: state.updatedAt.toISOString(),
+  };
+}
+
 export default async function repoIntelRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
   // Register the INDEX/REFRESH handlers exactly once at module load. Using a
-  // local service here (instead of `container.repoIntel`) is fine — the
+  // local service here (instead of `container.repoIntel`) is fine because the
   // JobRunner stores the handler closure, not the service instance, and the
   // lazy `container.repoIntel` getter constructs its own service for read
-  // calls. Both share the same DB, so behaviour is identical.
+  // calls. Both share the same DB, so behavior is identical.
   const service = new RepoIntelService(container);
   service.registerIndexJobHandlers();
 
   app.get(
     '/repos/:id/index-state',
     { schema: { params: IdParams } },
-    async (req): Promise<IndexState> => {
+    async (req): Promise<RepoIntelState> => {
       // Resolve tenancy so the request is workspace-scoped even though the
       // facade itself is tenant-agnostic (consistent with blast routes).
       await getContext(container, req);
-      return container.repoIntel.getIndexState(req.params.id);
+      return toRepoIntelState(await container.repoIntel.getIndexState(req.params.id));
     },
   );
 
@@ -55,7 +63,7 @@ export default async function repoIntelRoutes(appBase: FastifyInstance) {
         });
         jobId = job.id;
       } catch {
-        // swallow — degraded path
+        // swallow - degraded path
       }
       reply.code(202);
       return jobId

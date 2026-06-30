@@ -19,7 +19,7 @@ import { RipgrepCodeIndex } from '../adapters/codeindex/ripgrep.js';
 import { OpenAIProvider } from '../adapters/llm/openai.js';
 import { AnthropicProvider } from '../adapters/llm/anthropic.js';
 import { OpenAIEmbedder } from '../adapters/embedder/openai.js';
-import { OpenRouterProvider } from '@devdigest/reviewer-core';
+import { OpenRouterProvider } from '../adapters/llm/openrouter.js';
 import { estimateCost } from '../adapters/llm/pricing.js';
 import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
@@ -193,9 +193,9 @@ export class Container {
       return new OpenAIProvider(key);
     }
     if (id === 'openrouter') {
-      // Single OpenRouter provider lives in reviewer-core (shared with the CI
-      // runner); inject the PriceBook so cost attribution uses LIVE OpenRouter
-      // prices (with the static table as a fallback) rather than a hardcoded one.
+      // OpenRouter is an OpenAI-compatible infrastructure adapter; inject the
+      // PriceBook so cost attribution uses live OpenRouter prices (with the
+      // static table as a fallback) rather than a hardcoded one.
       const key = await this.secrets.get('OPENROUTER_API_KEY');
       if (!key) throw new ConfigError('OPENROUTER_API_KEY is not configured');
       return new OpenRouterProvider(key, {

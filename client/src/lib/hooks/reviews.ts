@@ -9,9 +9,11 @@ import { notify } from "../toast";
 import type {
   FindingActionKind,
   PrReviewComment,
+  PrCommentInput,
   ReviewRecord,
   ReviewRunResponse,
   RunEvent,
+  RunRequest,
   RunSummary,
 } from "@devdigest/shared";
 
@@ -103,13 +105,7 @@ export function usePrComments(prId: string | null | undefined) {
   });
 }
 
-export interface CreateCommentInput {
-  path: string;
-  line: number;
-  side?: "LEFT" | "RIGHT";
-  body: string;
-  in_reply_to?: number;
-}
+export type CreateCommentInput = PrCommentInput;
 
 /** Post one inline comment (or reply) to GitHub; refreshes the thread list. */
 export function useCreatePrComment(prId: string | null | undefined) {
@@ -122,10 +118,8 @@ export function useCreatePrComment(prId: string | null | undefined) {
 }
 
 // ---- Run a review (all enabled agents or a specific agent) ----
-export interface RunReviewInput {
+export interface RunReviewInput extends RunRequest {
   prId: string;
-  agentId?: string;
-  all?: boolean;
 }
 
 export function useRunReview() {

@@ -264,6 +264,34 @@ export const IndexStatus = z.object({
 });
 export type IndexStatus = z.infer<typeof IndexStatus>;
 
+// ---- Repo-intel index state (GET /repos/:id/index-state) ----
+export const RepoIntelIndexStatus = z.enum(['full', 'partial', 'degraded', 'failed']);
+export type RepoIntelIndexStatus = z.infer<typeof RepoIntelIndexStatus>;
+
+export const RepoIntelDegradedReason = z.enum([
+  'flag_off',
+  'index_failed',
+  'index_partial',
+  'repo_too_large',
+  'no_data',
+]);
+export type RepoIntelDegradedReason = z.infer<typeof RepoIntelDegradedReason>;
+
+export const RepoIntelState = z.object({
+  repoId: z.string(),
+  status: RepoIntelIndexStatus,
+  filesIndexed: z.number().int(),
+  filesSkipped: z.number().int(),
+  durationMs: z.number().int(),
+  reason: z.string().optional(),
+  lastIndexedSha: z.string(),
+  indexerVersion: z.number().int(),
+  updatedAt: z.string(),
+  degraded: z.boolean().optional(),
+  degradedReason: RepoIntelDegradedReason.optional(),
+});
+export type RepoIntelState = z.infer<typeof RepoIntelState>;
+
 // ---- Run request (review trigger; owned by A2, contract lives here) ----
 export const RunRequest = z.object({
   agentId: z.string().optional(),
