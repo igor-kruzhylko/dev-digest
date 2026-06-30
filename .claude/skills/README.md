@@ -8,6 +8,7 @@ On Windows: run `git config core.symlinks true` and enable Developer Mode (or an
 
 | Skill | Scope | Description |
 |-------|-------|-------------|
+| [onion-architecture](onion-architecture/SKILL.md) | Backend | DevDigest Onion / ports-and-adapters layering: where backend code goes, dependency rule, dependency-cruiser enforcement |
 | [fastify-best-practices](fastify-best-practices/SKILL.md) | Backend | Fastify routes, plugins, JSON-schema validation, error handling |
 | [drizzle-orm-patterns](drizzle-orm-patterns/SKILL.md) | Backend | Drizzle schema, queries, relations, transactions, migrations |
 | [postgresql-table-design](postgresql-table-design/SKILL.md) | Backend | Postgres schema design, data types, indexing, constraints |
