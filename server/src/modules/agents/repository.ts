@@ -83,26 +83,28 @@ export class AgentsRepository {
 
   /** Insert an agent AND record version 1 in agent_versions (immutable snapshot). */
   async insert(values: InsertAgent): Promise<AgentRow> {
-    const [row] = await this.db
-      .insert(t.agents)
-      .values({
-        workspaceId: values.workspaceId,
-        name: values.name,
-        description: values.description ?? DEFAULT_AGENT_DESCRIPTION,
-        provider: values.provider,
-        model: values.model,
-        systemPrompt: values.systemPrompt,
-        outputSchema: (values.outputSchema as object | undefined) ?? null,
-        ...(values.strategy !== undefined ? { strategy: values.strategy } : {}),
-        ...(values.ciFailOn !== undefined ? { ciFailOn: values.ciFailOn } : {}),
-        ...(values.repoIntel !== undefined ? { repoIntel: values.repoIntel } : {}),
-        enabled: values.enabled ?? true,
-        version: INITIAL_AGENT_VERSION,
-        createdBy: values.createdBy ?? null,
-      })
-      .returning();
-    await this.snapshotVersion(row!, INITIAL_AGENT_VERSION);
-    return row!;
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(t.agents)
+        .values({
+          workspaceId: values.workspaceId,
+          name: values.name,
+          description: values.description ?? DEFAULT_AGENT_DESCRIPTION,
+          provider: values.provider,
+          model: values.model,
+          systemPrompt: values.systemPrompt,
+          outputSchema: (values.outputSchema as object | undefined) ?? null,
+          ...(values.strategy !== undefined ? { strategy: values.strategy } : {}),
+          ...(values.ciFailOn !== undefined ? { ciFailOn: values.ciFailOn } : {}),
+          ...(values.repoIntel !== undefined ? { repoIntel: values.repoIntel } : {}),
+          enabled: values.enabled ?? true,
+          version: INITIAL_AGENT_VERSION,
+          createdBy: values.createdBy ?? null,
+        })
+        .returning();
+      await this.snapshotVersion(tx, row!, INITIAL_AGENT_VERSION);
+      return row!;
+    });
   }
 
   /**
@@ -121,33 +123,35 @@ export class AgentsRepository {
     const configChanged = isConfigChange(existing, patch);
     const nextVersion = configChanged ? existing.version + 1 : existing.version;
 
-    const [row] = await this.db
-      .update(t.agents)
-      .set({
-        ...(patch.name !== undefined ? { name: patch.name } : {}),
-        ...(patch.description !== undefined ? { description: patch.description } : {}),
-        ...(patch.provider !== undefined ? { provider: patch.provider } : {}),
-        ...(patch.model !== undefined ? { model: patch.model } : {}),
-        ...(patch.systemPrompt !== undefined ? { systemPrompt: patch.systemPrompt } : {}),
-        ...(patch.outputSchema !== undefined
-          ? { outputSchema: patch.outputSchema as object }
-          : {}),
-        ...(patch.strategy !== undefined ? { strategy: patch.strategy } : {}),
-        ...(patch.ciFailOn !== undefined ? { ciFailOn: patch.ciFailOn } : {}),
-        ...(patch.repoIntel !== undefined ? { repoIntel: patch.repoIntel } : {}),
-        ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
-        ...(configChanged ? { version: nextVersion } : {}),
-      })
-      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(t.agents)
+        .set({
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.description !== undefined ? { description: patch.description } : {}),
+          ...(patch.provider !== undefined ? { provider: patch.provider } : {}),
+          ...(patch.model !== undefined ? { model: patch.model } : {}),
+          ...(patch.systemPrompt !== undefined ? { systemPrompt: patch.systemPrompt } : {}),
+          ...(patch.outputSchema !== undefined
+            ? { outputSchema: patch.outputSchema as object }
+            : {}),
+          ...(patch.strategy !== undefined ? { strategy: patch.strategy } : {}),
+          ...(patch.ciFailOn !== undefined ? { ciFailOn: patch.ciFailOn } : {}),
+          ...(patch.repoIntel !== undefined ? { repoIntel: patch.repoIntel } : {}),
+          ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+          ...(configChanged ? { version: nextVersion } : {}),
+        })
+        .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+        .returning();
 
-    if (configChanged && row) await this.snapshotVersion(row, nextVersion);
-    return row;
+      if (configChanged && row) await this.snapshotVersion(tx, row, nextVersion);
+      return row;
+    });
   }
 
-  private async snapshotVersion(row: AgentRow, version: number): Promise<void> {
-    const skills = await this.skillIdsForAgent(row.id);
-    await this.db
+  private async snapshotVersion(db: Db, row: AgentRow, version: number): Promise<void> {
+    const skills = await this.skillIdsForAgent(row.id, db);
+    await db
       .insert(t.agentVersions)
       .values({
         agentId: row.id,
@@ -189,8 +193,8 @@ export class AgentsRepository {
   // ---- agent_skills link table (A2 owns the agent side) -------------------
 
   /** Skills linked to an agent, in `order` ascending. */
-  async linkedSkills(agentId: string): Promise<LinkedSkillRow[]> {
-    const rows = await this.db
+  async linkedSkills(agentId: string, db: Db = this.db): Promise<LinkedSkillRow[]> {
+    const rows = await db
       .select({ skill: t.skills, order: t.agentSkills.order })
       .from(t.agentSkills)
       .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
@@ -199,8 +203,8 @@ export class AgentsRepository {
     return rows.map((r) => ({ skill: r.skill, order: r.order }));
   }
 
-  async skillIdsForAgent(agentId: string): Promise<string[]> {
-    const links = await this.linkedSkills(agentId);
+  async skillIdsForAgent(agentId: string, db: Db = this.db): Promise<string[]> {
+    const links = await this.linkedSkills(agentId, db);
     return links.map((l) => l.skill.id);
   }
 
@@ -227,10 +231,13 @@ export class AgentsRepository {
    * the list are unlinked.
    */
   async setSkills(agentId: string, skillIds: string[]): Promise<void> {
-    await this.db.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
-    if (skillIds.length === 0) return;
-    await this.db
-      .insert(t.agentSkills)
-      .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
+      if (skillIds.length > 0) {
+        await tx
+          .insert(t.agentSkills)
+          .values(skillIds.map((skillId, i) => ({ agentId, skillId, order: i })));
+      }
+    });
   }
 }

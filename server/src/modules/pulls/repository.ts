@@ -117,20 +117,24 @@ export class PullsRepository {
     await this.db.update(t.pullRequests).set(detail).where(eq(t.pullRequests.id, prId));
   }
 
-  /** Replace the persisted files for a PR (delete-all then insert). */
+  /** Replace the persisted files for a PR (delete-all then insert), atomically. */
   async replaceFiles(prId: string, files: PrFileInsert[]): Promise<void> {
-    await this.db.delete(t.prFiles).where(eq(t.prFiles.prId, prId));
-    if (files.length > 0) {
-      await this.db.insert(t.prFiles).values(files.map((f) => ({ prId, ...f })));
-    }
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.prFiles).where(eq(t.prFiles.prId, prId));
+      if (files.length > 0) {
+        await tx.insert(t.prFiles).values(files.map((f) => ({ prId, ...f })));
+      }
+    });
   }
 
-  /** Replace the persisted commits for a PR (delete-all then insert). */
+  /** Replace the persisted commits for a PR (delete-all then insert), atomically. */
   async replaceCommits(prId: string, commits: PrCommitInsert[]): Promise<void> {
-    await this.db.delete(t.prCommits).where(eq(t.prCommits.prId, prId));
-    if (commits.length > 0) {
-      await this.db.insert(t.prCommits).values(commits.map((c) => ({ prId, ...c })));
-    }
+    await this.db.transaction(async (tx) => {
+      await tx.delete(t.prCommits).where(eq(t.prCommits.prId, prId));
+      if (commits.length > 0) {
+        await tx.insert(t.prCommits).values(commits.map((c) => ({ prId, ...c })));
+      }
+    });
   }
 
   listFiles(prId: string): Promise<PrFileRow[]> {
