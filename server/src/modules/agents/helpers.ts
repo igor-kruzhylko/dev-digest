@@ -1,6 +1,8 @@
 import type { Agent, AgentVersion, CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { AgentVersionConfig } from '@devdigest/shared';
-import type { AgentRow, AgentVersionRow } from './repository.js';
+// Row types come from the shared db/rows module (not ./repository) so this pure
+// helper doesn't form an import cycle with its own data layer.
+import type { AgentRow, AgentVersionRow } from '../../db/rows.js';
 
 /**
  * Pure helpers for the agents module — DB row ⇄ DTO mapping and the

@@ -39,6 +39,18 @@ export class ReviewRepository {
     return pullRepo.getPrFiles(this.db, prId);
   }
 
+  // ---- PR-list aggregates (consumed by the pulls module) ------------------
+
+  /** Latest-review score per PR (kind='review'); PRs without a review absent. */
+  latestReviewScoreByPrIds(prIds: string[]): Promise<Map<string, number | null>> {
+    return reviewRepo.latestReviewScoreByPrIds(this.db, prIds);
+  }
+
+  /** Total billed USD per PR across COMPLETED runs (null costs skipped). */
+  totalRunCostByPrIds(prIds: string[]): Promise<Map<string, number>> {
+    return runRepo.totalRunCostByPrIds(this.db, prIds);
+  }
+
   // ---- reviews + findings -------------------------------------------------
 
   insertReview(values: {

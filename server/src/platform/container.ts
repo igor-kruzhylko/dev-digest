@@ -25,6 +25,8 @@ import { PriceBook } from './price-book.js';
 import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
+import { RepoRepository } from '../modules/repos/repository.js';
+import { PullsRepository } from '../modules/pulls/repository.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -72,6 +74,8 @@ export class Container {
   // `container.agentsRepo` instead of reaching into another module's folder.
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
+  private _repoRepo?: RepoRepository;
+  private _pullsRepo?: PullsRepository;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -98,6 +102,18 @@ export class Container {
 
   get reviewRepo(): ReviewRepository {
     return (this._reviewRepo ??= new ReviewRepository(this.db));
+  }
+
+  /** Repos data-access — shared so workspace/polling/pulls read repos without
+   *  reaching into the repos module's folder. */
+  get repoRepo(): RepoRepository {
+    return (this._repoRepo ??= new RepoRepository(this.db));
+  }
+
+  /** PR-import data-access (pull_requests/pr_files/pr_commits) — shared by the
+   *  pulls (read/detail) and polling (list sync) modules. */
+  get pullsRepo(): PullsRepository {
+    return (this._pullsRepo ??= new PullsRepository(this.db));
   }
 
   get codeIndex(): CodeIndex {
