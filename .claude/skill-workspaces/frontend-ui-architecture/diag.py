@@ -3,7 +3,7 @@
 (name + input snippet) so we can see whether/what skill triggers for a query."""
 import json, os, queue, subprocess, sys, threading, time
 
-PROJECT_ROOT = r"C:\Users\ihork\OneDrive\Documents\MyProjects\Neoversity\DevDigest\dev-digest"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 query = sys.argv[1] if len(sys.argv) > 1 else "how should i organize a react components folder that has 80 files in it"
 model = "claude-opus-4-8"
 

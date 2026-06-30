@@ -1,6 +1,6 @@
 # Frontend UI Architecture — skill
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 **Skill id:** `frontend-ui-architecture`
 
 A skill that helps decide **where frontend code should live and how to structure it** — for React
@@ -173,5 +173,9 @@ widely-cited reference); these take priority when guidance conflicts.
 
 ## Changelog
 
+- **1.0.1** — Trigger tuning. Tightened the description's negative scope to exclude styling/CSS
+  approach, build/tooling, and library choice, after a 20-query trigger eval showed the only
+  false trigger was a "CSS modules vs styled-components / where does global CSS go" question.
+  Post-fix: 20/20, precision 100%, recall 100% on the eval set. No change to guidance content.
 - **1.0.0** — Initial release. React + Next.js App Router organization guidance; `SKILL.md` core
   framework + two reference files; full research bibliography.
