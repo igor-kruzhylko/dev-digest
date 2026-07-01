@@ -131,6 +131,54 @@ export const Skill = z.object({
 });
 export type Skill = z.infer<typeof Skill>;
 
+const SkillWriteInput = z.object({
+  name: z.string().min(1).max(120),
+  description: z.string().min(1).max(500),
+  type: SkillType,
+  body: z.string().min(1).max(80_000),
+  source: SkillSource.optional(), // default 'manual'
+  enabled: z.boolean().optional(), // default true (manual); false for imports
+  version_label: z.string().max(160).optional(),
+});
+export const CreateSkillInput = SkillWriteInput;
+export type CreateSkillInput = z.infer<typeof CreateSkillInput>;
+
+export const UpdateSkillInput = SkillWriteInput.partial();
+export type UpdateSkillInput = z.infer<typeof UpdateSkillInput>;
+
+export const SkillVersion = z.object({
+  skill_id: z.string(),
+  version: z.number().int(),
+  body: z.string(),
+  label: z.string().nullish(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
+
+export const SkillUsage = z.object({
+  skill_id: z.string(),
+  agent_count: z.number().int(),
+  agents: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+export type SkillUsage = z.infer<typeof SkillUsage>;
+
+export const SkillImportPreview = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  body: z.string(),
+  source: SkillSource, // 'extracted'
+  warnings: z.array(z.string()),
+  ignored_files: z.array(z.string()),
+});
+export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
+
+export const ImportSkillInput = z.object({
+  filename: z.string().min(1).max(260),
+  content_base64: z.string().min(1), // size checked after decode
+});
+export type ImportSkillInput = z.infer<typeof ImportSkillInput>;
+
 export const CommunitySkill = z.object({
   name: z.string(),
   repo: z.string(),
