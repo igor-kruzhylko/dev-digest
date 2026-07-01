@@ -1,11 +1,11 @@
-/* TraceBody — the Trace tab content: Configuration, Stats, Prompt assembly,
-   Tool calls, and Raw output sections for one persisted RunTrace. */
+/* TraceBody — the Trace tab content: Configuration, Stats, Findings, Prompt
+   assembly, Tool calls, and Raw output sections for one persisted RunTrace. */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@devdigest/ui";
-import type { RunTrace } from "@devdigest/shared";
+import type { RunTrace, FindingRecord } from "@devdigest/shared";
 import { PROMPT_COLORS } from "../../constants";
 import { formatSeconds, formatTokens } from "../../helpers";
 import { formatUsd } from "@/lib/format-cost";
@@ -13,9 +13,10 @@ import { s } from "../../styles";
 import { TraceSection } from "../TraceSection";
 import { ToolCallRow } from "../ToolCallRow";
 import { PromptBlock } from "../PromptBlock";
+import { FindingsSection } from "../FindingsSection";
 import { Row, Stat } from "../atoms";
 
-export function TraceBody({ trace }: { trace: RunTrace }) {
+export function TraceBody({ trace, findings }: { trace: RunTrace; findings: FindingRecord[] }) {
   const t = useTranslations("runs");
   const stats = trace.stats;
   return (
@@ -68,6 +69,7 @@ export function TraceBody({ trace }: { trace: RunTrace }) {
         </div>
       </TraceSection>
 
+      <FindingsSection findings={findings} />
 
       <TraceSection icon="FileText" title={t("trace.promptAssembly")} defaultOpen={false}>
         <PromptBlock label={t("trace.prompt.system")} text={trace.prompt_assembly.system} color={PROMPT_COLORS.system} />
