@@ -85,7 +85,11 @@ cd e2e && npm install && npm test
   `pnpm exec vitest run …` rather than relying on committed `test:unit` /
   `test:integration` scripts.
 - **Hermetic by default.** Reach for `src/adapters/mocks.ts` (MockLLMProvider,
-  MockGitClient) rather than real network/keys.
+  MockGitClient) rather than real network/keys. Vitest doesn't read tsconfig
+  `paths` — any suite that imports `server/src/adapters/mocks.ts` (reviewer-core's
+  `test/run.test.ts` does) must alias EVERY package specifier that file imports
+  transitively (`@devdigest/shared` *and* `@devdigest/reviewer-core`) in its own
+  `vitest.config.ts`, not just the one the suite itself needs.
 - **E2E specs are deterministic batch JSON** (`e2e/specs/*.flow.json`) using
   only `--url` / `--text` / `find` locators — never the AI `chat` command.
 - **CI is path-filtered per package.** Cross-package source aliases are encoded
