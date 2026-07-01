@@ -153,9 +153,10 @@ version and snapshots — history stays append-only.
   `skill_versions` (`onConflictDoNothing`); metadata-only edits (name/description/
   type/enabled) do not bump. Mirrors `isConfigChange` in agents (decision 4).
 - `listVersions(skillId)` — newest first (includes `label`).
-- `usage(skillId)` / `usageAll()` — join `agent_skills` ⋈ `agents` (workspace)
-  → agent id/name per skill. Real data for the card "N agents" line and the Stats
-  "USED BY" / "AGENTS USING THIS SKILL".
+- `usage(skillId)` / `usageAll()` — join `agent_skills` ⋈ `agents` (workspace).
+  `usage(skillId)` returns the full agent id/name list for the Stats tab;
+  `usageAll()` may return **counts only** (the cards need just "{n} agents"),
+  keeping the list payload light.
 - `deleteById(workspaceId, skillId)` checks usage first. If linked, throw an
   `AppError('skill_in_use', ..., 409, { agents })`; otherwise delete the skill
   and allow `skill_versions` to cascade.
@@ -192,8 +193,10 @@ writes to the DB and never executes anything.** Lives in
   clear message; the client shows it in the drawer (`skills.drawer.importFailed`).
 - **Save is a separate step**: after preview + confirm, the client calls
   `POST /skills` with the previewed fields and **`enabled: false`**
-  (`source: 'extracted'`) — imported skills land **disabled until vetted**, per
-  the pre-authored copy (`skills.url.success`, `listItem.needsVetting`).
+  (`source: 'extracted'`) — imported skills land **disabled until vetted**
+  (`listItem.needsVetting`; add a file-import equivalent of `skills.url.success`,
+  which is URL-specific copy). Note: this "imported ⇒ disabled" rule is for the
+  **live import path only** — the demo **seed** enables its skills explicitly (§9).
 
 Transport is JSON base64 (not multipart) to avoid adding `@fastify/multipart`;
 the client reads the `File` via `FileReader.readAsDataURL` and strips the prefix.
@@ -279,7 +282,10 @@ Both render a shared `SkillsView`; the `[id]` route selects the detail.
   description, **type** badge, **source** label (`skills.listItem.source.*`), and a
   stats line **"{n} agents"** from `useSkillsUsage()` (real). The mockup's
   `% pull / % accept` are analytics with no data source → **omitted** in the real
-  build (or demo-only; see §14). Selecting a card routes to `/skills/:id`.
+  build (dropped per §14). Selecting a card routes to `/skills/:id`.
+- **Delete** (from the card or the detail header) → `useDeleteSkill`; a
+  `409 skill_in_use` response is surfaced with the linking agents, prompting the
+  user to unlink the skill from those agents first (FR-8).
 
 **Right detail** (`SkillDetail`) — header shows name + **type** badge + **version**
 badge (`v{version}`) + a **Run on evals** button (part of the deferred Evals
@@ -330,8 +336,9 @@ surface — rendered disabled/placeholder). Tabs mirror the Agent editor
   copy is renamed; `agents.skills.orderHint` = "Order matters — earlier skills
   appear earlier…". Persist via `POST /agents/:id/skills` with the existing
   `skill_ids` array in desired order, seeded from `GET /agents/:id/skills`.
-- Drag-reorder: a lightweight local reorder (index swap) is acceptable; no new
-  dnd dependency required.
+- Reorder: **no new dnd dependency** — implement as up/down controls or a simple
+  pointer drag on the handle, then persist the resulting `skill_ids` order. (The
+  mockup shows drag handles; either affordance is acceptable.)
 
 ### 7.4 Navigation
 
@@ -374,8 +381,10 @@ Extend the idempotent seed (guard each insert by name/number, like today):
 - **Skills** (workspace-scoped). At least: `pr-quality-rubric` (rubric),
   `secret-leakage-gate` (security), `lethal-trifecta` (security), plus the two
   experiment skills below. Mark **one** `source: 'extracted'` to represent the
-  import path (the live import demo is done via UI in validation). Bodies live in
-  a new `seed-skills.ts` (mirror `seed-prompts.ts`).
+  import path (the live import demo is done via UI in validation). **All seeded
+  skills are `enabled: true`** — the "imported ⇒ disabled" rule (§4) is for the
+  live UI import only, so the control experiment works right after `db:seed`.
+  Bodies live in a new `seed-skills.ts` (mirror `seed-prompts.ts`).
 - **Version history** — seed a few `skill_versions` rows (with `label`s) for
   `pr-quality-rubric` so the Versions tab is populated in the demo (matches the
   "5 versions" mockup). Set the skill's `version` to the latest.
@@ -383,7 +392,9 @@ Extend the idempotent seed (guard each insert by name/number, like today):
   - **Test Quality Reviewer** — flags uncovered branches, missed corner cases,
     over-mocking, flaky tests.
   - **API Contract Reviewer** — flags breaking route-signature / contract changes.
-- **Skills → agents** links (`agent_skills`, ordered by `order`):
+- **Skills → agents** links (`agent_skills`, ordered by `order`) — so the seeded
+  default is *with skills* (each experiment skill is linked **and** globally
+  enabled); the demo disables/unlinks to show the miss:
   - Test Quality Reviewer ← a `test-quality-rubric` skill (the branch/edge/mocking
     rubric). Seed as `source: 'extracted'` to represent imported origin; the live
     preview→save import path is still validated through UI/API.
@@ -453,17 +464,18 @@ Extend the idempotent seed (guard each insert by name/number, like today):
    work); import a `.md` (and a `.zip`) → preview shows the parsed skill +
    `ignored_files`, nothing saved until Save; saved import is `enabled: false`.
    **Stats** tab shows USED BY + agents-using (real).
-3. **Agent Skills tab**: on Test Quality Reviewer, all skills listed; attach the
-   test-quality skill, reorder; save.
-4. **Test Quality experiment**: run the happy-path-only PR with the skill
-   unlinked (or globally disabled) → reviewer misses the uncovered branch
-   (demo pass). Link + globally enable → re-run → flags the uncovered branch +
-   boundary case. Open the run trace → prompt assembly shows the **Skills**
-   block; `tokens_in` higher than the no-skill run.
+3. **Agent Skills tab**: on Test Quality Reviewer, all workspace skills are listed;
+   the seeded `test-quality-rubric` is already attached (checked) and ordered.
+4. **Test Quality experiment**: run the happy-path-only PR **as seeded** (skill
+   linked + globally enabled) → the reviewer **flags** the uncovered branch + a
+   boundary case. Open the run trace → prompt assembly shows the **Skills** block;
+   `tokens_in` higher than the no-skill run. Then **disable** the skill (global
+   toggle off, or uncheck it on the agent) → re-run → the reviewer **misses** it
+   (the control). Re-enable to restore.
 5. **API Contract experiment**: same with the route-signature PR and the
-   api-contract skill.
-6. **Logs**: the active linked run's Live Log shows "Injecting N linked skill
-   block(s)"; the no-active-skill run does not, and its trace has no Skills block.
+   api-contract skill — seeded on → flags the breaking change; disabled → misses.
+6. **Logs**: the with-skills run's Live Log shows "Injecting N linked skill
+   block(s)"; the disabled run does not, and its trace has no Skills block.
 7. **Delete guard**: try deleting a skill linked to an agent → API/UI blocks with
    usage; unlink it from all agents → delete succeeds.
 8. **pr-self-review** (auto-invoke still disabled): run it manually over this

@@ -102,20 +102,22 @@ recommended simple defaults.
 **Goal:** everything reproduces out of the box.
 
 - `seed-skills.ts` (bodies); `seed-prompts.ts` (+2 agent prompts).
-- `seed.ts`: skills (one `source:'extracted'` to represent imported origin) +
-  `skill_versions` with `label` for `pr-quality-rubric` + two agents (**Test
-  Quality Reviewer**, **API Contract Reviewer**) + ordered `agent_skills` links +
-  **two demo PRs** with `pr_files.patch` (reviewable offline).
+- `seed.ts`: skills (all `enabled:true`; one `source:'extracted'` to represent
+  imported origin) + `skill_versions` with `label` for `pr-quality-rubric` + two
+  agents (**Test Quality Reviewer**, **API Contract Reviewer**) + ordered
+  `agent_skills` links so the seeded default is *with skills* + **two demo PRs**
+  with `pr_files.patch` (reviewable offline).
 - Idempotent (guard each insert by name/number).
 - **Commit:** `feat(skills): seed demo agents, skills, versions, control-experiment PRs`
 
 ## Phase 6 — Validation + wrap-up (build step 5)
 
 - `pnpm -C server db:migrate && db:seed`; run the studio; execute the §13
-  verification scenarios: both agents — no active linked skills → miss, with
-  linked globally enabled skills → flag; the run trace shows the Skills block +
-  higher `tokens_in`; the Live Log shows "Injecting N…"; import goes through
-  preview with nothing executed; linked skill delete is blocked until unlinked.
+  verification scenarios: both agents run **as seeded** (linked + globally enabled)
+  → flag; **disable/unlink** the skill → re-run → miss; the with-skills run's trace
+  shows the Skills block + higher `tokens_in`; the Live Log shows "Injecting N…";
+  import goes through preview with nothing executed; linked skill delete is blocked
+  until unlinked.
 - Gates: typecheck (all packages), `arch`, vitest, contract-drift, migration, i18n.
 - `/pr-self-review` manually (auto-invoke still disabled) → pulls **both** frontend
   and backend skills.

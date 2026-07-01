@@ -24,7 +24,7 @@ What is **missing** is the product itself:
 - linked skills are **never actually loaded into a review** — the run executor
   does not pass an agent's skills to the engine, so today skills have **zero
   effect** on a review;
-- the Agent editor has **no Skills tab** to bind, enable, and order skills.
+- the Agent editor has **no Skills tab** to attach, unlink, and order skills.
 
 The core value is **reuse and separation of concerns**: the same review rule
 (e.g. "flag breaking API-contract changes") is written once as a skill and
@@ -43,8 +43,8 @@ provider, output schema, or any executable behaviour of its own.
 - Let a user **bind skills to an agent** from a Skills tab in the Agent editor:
   attach/unlink and reorder. **Order defines the sequence of skill bodies in the
   prompt's Skills section.**
-- **Actually inject** each agent's enabled skills into its review prompt, so
-  skills change review behaviour — and make the injected **Skills section**
+- **Actually inject** each agent's globally-enabled, linked skills into its review
+  prompt, so skills change review behaviour — and make the injected **Skills section**
   visible in the run trace (prompt-assembly section). Whole-run `tokens_in`
   should increase when skills are injected; per-section token attribution is out
   of scope for this iteration.
@@ -179,8 +179,11 @@ Seed data ships so the feature — and its effect — is demonstrable out of the
 
 - **Two new agents**: **Test Quality Reviewer** (flags uncovered branches, missed
   corner cases, over-mocking, flaky tests) and an **API Contract Reviewer** (flags
-  breaking route-signature changes). Each has its skills bound; **at least one
-  skill is brought in through the import path** so the whole flow is exercised.
+  breaking route-signature changes). Each has its skills bound **and globally
+  enabled**, so the with-skills outcome reproduces immediately after `db:seed`;
+  **at least one skill is brought in through the import path** so the whole flow is
+  exercised. The **without-skills** case is shown by disabling (or unlinking) a
+  skill and re-running.
 - **Two demo PRs** for the control experiment:
   - **Test Quality**: a PR whose test covers only the happy path → **without
     skills** the reviewer passes it (miss); **with skills** it flags the uncovered
