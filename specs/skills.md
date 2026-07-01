@@ -23,7 +23,10 @@ affect a review, the Agent-editor Skills tab, and the demo seed.
 - **Trace UI**: `TraceBody` already renders `prompt_assembly.skills` as its own
   `PromptBlock` when non-null (`…/RunTraceDrawer/_components/TraceBody`).
 - **i18n**: `client/messages/en/skills.json` and `agents.skills.*` (incl.
-  `enabledCount`, `orderHint`) are largely pre-authored.
+  `enabledCount`, `orderHint`, `page.selectPrompt`, `detail`, `preview`) are
+  largely pre-authored for the master-detail design.
+- **Markdown render**: vendored `Markdown` primitive (`@devdigest/ui`,
+  `react-markdown` + `remark-gfm` already deps) powers the Preview tab.
 - **Nav routing**: `activeKeyFor` already maps `/skills` → `"skills"`.
 
 **Net effect:** once run-executor passes an agent's enabled skill bodies to
@@ -40,11 +43,19 @@ Add a **per-agent enable** flag to the link table (decision 1, two-level enable)
 enabled: boolean('enabled').notNull().default(true),
 ```
 
+Add an optional **version label** to the snapshot table (the Versions tab shows a
+human label per version, e.g. "Added Tests dimension"):
+
+```ts
+// server/src/db/schema/skills.ts — skillVersions
+label: text('label'),   // nullable; "what changed" note shown in the Versions tab
+```
+
 - Generate the migration with `pnpm -C server db:generate` (creates
   `migrations/NNNN_*.sql` + bumps `meta/_journal.json`). **Never hand-edit
-  migrations.** Existing links backfill to `enabled = true` (no behaviour change
-  for already-linked skills).
-- `skills` / `skill_versions` are unchanged (already sufficient).
+  migrations.** Existing `agent_skills` rows backfill to `enabled = true`; existing
+  `skill_versions` rows get `label = null` (no behaviour change).
+- `skills` is otherwise unchanged (already sufficient).
 - This is a schema change → the pr-self-review migration-drift gate requires the
   generated migration in the same change set.
 
@@ -64,6 +75,7 @@ const SkillWriteInput = z.object({
   body: z.string().min(1),
   source: SkillSource.optional(),      // default 'manual'
   enabled: z.boolean().optional(),     // default true (manual); false for imports
+  version_label: z.string().optional(),// optional "what changed" note for the snapshot
 });
 export const CreateSkillInput = SkillWriteInput;
 export const UpdateSkillInput = SkillWriteInput.partial();
@@ -72,7 +84,16 @@ export const SkillVersion = z.object({
   skill_id: z.string(),
   version: z.number().int(),
   body: z.string(),
+  label: z.string().nullish(),         // "what changed" note (Versions tab)
   created_at: z.string(),
+});
+
+// Powers the card "N agents" line, the Stats "USED BY" card, and the
+// "AGENTS USING THIS SKILL" list. Derived from agent_skills (real data).
+export const SkillUsage = z.object({
+  skill_id: z.string(),
+  agent_count: z.number().int(),
+  agents: z.array(z.object({ id: z.string(), name: z.string(), enabled: z.boolean() })),
 });
 
 // Import preview — parsed skill DRAFT, never persisted by the preview call.
@@ -139,7 +160,13 @@ Register in `server/src/modules/index.ts` (`skills` key). Workspace-scoped via
 | `PUT /skills/:id` | `IdParams`, `UpdateSkillInput` | `Skill` (bumps version + snapshots on body change) |
 | `DELETE /skills/:id` | `IdParams` | `{ ok: true }` (cascades link rows via FK) |
 | `GET /skills/:id/versions` | `IdParams` | `SkillVersion[]` (newest first) |
+| `GET /skills/:id/usage` | `IdParams` | `SkillUsage` (agents linking this skill) |
+| `GET /skills/usage` | — | `SkillUsage[]` (all skills; powers the list cards) |
 | `POST /skills/import/preview` | `ImportSkillInput` | `SkillImportPreview` (NO DB write) |
+
+**Restore** (Versions tab) needs no new endpoint: it re-`PUT`s the chosen
+version's `body` (with a `version_label` like "Restored v3"), which bumps the
+version and snapshots — history stays append-only.
 
 **Repository** (`SkillsRepository`, owns `skills` + `skill_versions`):
 
@@ -149,7 +176,11 @@ Register in `server/src/modules/index.ts` (`skills` key). Workspace-scoped via
 - `update`: on a **body change** bump `version` and snapshot the new body into
   `skill_versions` (`onConflictDoNothing`); metadata-only edits (name/description/
   type/enabled) do not bump. Mirrors `isConfigChange` in agents (decision 4).
-- `listVersions(skillId)` — newest first.
+- `listVersions(skillId)` — newest first (includes `label`).
+- `usage(skillId)` / `usageAll()` — join `agent_skills` ⋈ `agents` (workspace)
+  → agent id/name/`enabled` per skill. Real data for the card "N agents" line and
+  the Stats "USED BY" / "AGENTS USING THIS SKILL". (The agent side of the join
+  belongs to `agentsRepo`; expose a small read here or delegate — decide in impl.)
 - Row type `SkillRow = typeof t.skills.$inferSelect` re-exported from
   `server/src/db/rows.ts` (add it there, next to `AgentRow`).
 
@@ -248,28 +279,65 @@ the agents feature.
 ### 7.1 Hook — `src/lib/hooks/skills.ts`
 
 `useSkills`, `useSkill(id)`, `useCreateSkill`, `useUpdateSkill`,
-`useDeleteSkill`, `useImportSkillPreview` (mutation → preview), and
-`useSkillVersions(id)` — mirroring `hooks/agents.ts` (React Query, invalidate
-`["skills"]`).
+`useDeleteSkill`, `useImportSkillPreview` (mutation → preview),
+`useSkillVersions(id)`, `useSkillUsage(id)` and `useSkillsUsage()` — mirroring
+`hooks/agents.ts` (React Query; invalidate `["skills"]` + `["skill", id]`).
 
-### 7.2 Skills page — `src/app/skills/`
+### 7.2 Skills page — master-detail (`src/app/skills/`)
 
-- `page.tsx` → `SkillsListView` (mirror `AgentsListView`).
-- **Grid of `SkillCard`s**: name, **type** badge, description, **enabled** toggle
-  (`useUpdateSkill({ enabled })`). Reuse `skills.json` copy + `agents.card` layout.
-- **Add** control (`Dropdown`, like agents): **Create** → `CreateSkillModal`;
-  **Import** → `ImportSkillDrawer`.
-- **Side preview** on card click: rendered body + metadata (name/type/source/
-  version). Either a side panel or `/skills/:id` detail (copy exists under
-  `skills.detail` and `skills.preview`). Chosen: a right-side preview panel on the
-  list page (matches screenshot 1); `/skills/:id` deep-link optional.
-- `CreateSkillModal` (mirror `CreateAgentModal`): fields **name, description,
-  type, body(Markdown)**. Description helper text = *"the skill's interface —
-  phrase it directively"* (FR-2). NO provider/model/schema fields.
+A **two-pane** view (screenshots): a persistent **left list** + a **right detail
+pane** with tabs. Routes: `/skills` (list + "Select a skill" empty state —
+`skills.page.selectPrompt`) and `/skills/[id]` (list + selected skill detail).
+Both render a shared `SkillsView`; the `[id]` route selects the detail.
+
+**Left list** (`SkillsList` + `SkillCard`):
+
+- Header: title, search (`skills.page.searchPlaceholder`), **Add Skill** dropdown
+  (`skills.page.addSkill`) → **Create** (`CreateSkillModal`) / **Import**
+  (`ImportSkillDrawer`).
+- `SkillCard`: icon, name (mono), **enabled** toggle (`useUpdateSkill({enabled})`),
+  description, **type** badge, **source** label (`skills.listItem.source.*`), and a
+  stats line **"{n} agents"** from `useSkillsUsage()` (real). The mockup's
+  `% pull / % accept` are analytics with no data source → **omitted** in the real
+  build (or demo-only; see §14). Selecting a card routes to `/skills/:id`.
+
+**Right detail** (`SkillDetail`) — header shows name + **type** badge + **version**
+badge (`v{version}`) + a **Run on evals** button (part of the deferred Evals
+surface — rendered disabled/placeholder). Tabs mirror the Agent editor
+(`Tabs` from `@devdigest/ui`, tab state in `?tab=`):
+
+- **Config** — `name` (required), `description` (helper: *"the skill's interface —
+  phrase it directively"*, FR-2), `type` select, **Skill body** Markdown editor.
+  The body editor shows a filename chip `${slug(name)}.md`, an **unsaved** badge
+  when dirty, a **token estimate** (`~ceil(chars/4)`), and an **Enabled** toggle +
+  `v{version}` badge (top-right). Save → `useUpdateSkill` (body change bumps
+  version). NO provider/model/schema fields (skills are text + config).
+- **Preview** — renders the body via the vendored **`Markdown`** primitive
+  (`@devdigest/ui`, `react-markdown` + `remark-gfm` already deps). Caption:
+  `skills.page` / `"Rendered as the reviewing agent receives it."`
+- **Evals** — **deferred** (user: skip for now). The tab exists in the design;
+  render a placeholder like the not-yet-built agent tabs. No functionality.
+- **Stats** — `useSkillUsage(id)`: **USED BY** = `agent_count` and **AGENTS USING
+  THIS SKILL** = the `agents` list (each links to `/agents/:id`) are **real**. The
+  other cards (pull frequency, accept rate, findings 30d, findings-by-category,
+  cost) have **no data source** (no skill→finding attribution; agent Stats are
+  likewise an unbuilt "A5 mount") → rendered as **"—" / "not tracked yet"**,
+  **no fabricated numbers** (decision, §14). The layout matches the mockup but the
+  unavailable cards are honestly empty.
+- **Versions** — `useSkillVersions(id)`: list newest-first with `v{n}`, `label`,
+  date; the current version tagged. **Restore** → `useUpdateSkill({ body,
+  version_label: "Restored v{n}" })`. **Diff** → a minimal client-side line diff of
+  two version bodies (no new dep). Caption: *"Every save snapshots the body so eval
+  runs stay reproducible against the exact text they scored."*
+
+**Modals/drawers:**
+
+- `CreateSkillModal` (mirror `CreateAgentModal`): **name, description, type,
+  body(Markdown)**; on save → route to `/skills/:id?tab=config`.
 - `ImportSkillDrawer`: file input (`.md`/`.zip`) → `useImportSkillPreview` →
   render the `SkillImportPreview` (name/type/body + `warnings` + `ignored_files`)
-  with an explicit **trust notice** (`skills.preview.untrustedNotice`); **Save**
-  → `useCreateSkill({ …preview, enabled: false })`. Nothing saved before Save.
+  with an explicit **trust notice** (`skills.preview.untrustedNotice`); **Save** →
+  `useCreateSkill({ …preview, enabled: false })`. Nothing saved before Save.
 
 ### 7.3 Agent editor — Skills tab
 
@@ -301,14 +369,19 @@ decision below.
 
 ## 8. i18n
 
-`en/skills.json` and `agents.skills.*` are largely pre-authored and reused as-is.
-Gaps to add (keys only, `en` is the only locale):
+`en/skills.json` and `agents.skills.*` are largely pre-authored and reused as-is
+(`page.selectPrompt`, `detail`, `preview`, `listItem`, `drawer`). Gaps to add
+(keys only, `en` is the only locale):
 
 - `skills.create.*` for `CreateSkillModal` (title/fields/…) if not covered by the
   existing `file`/`preview` copy.
 - `skills.file.*` currently implies paste-a-body; extend copy for **file upload**
   (`.md`/`.zip`) + `ignored_files` note. Reuse `skills.preview.untrustedNotice`
   for the trust message.
+- **Detail tabs**: `skills.tabs.*` (config/preview/evals/stats/versions),
+  `skills.config.*` (body/tokens/unsaved), `skills.stats.*` (usedBy, agentsUsing,
+  and the deferred metric labels), `skills.versions.*` (title, current, diff,
+  restore, snapshotNote), and the **Run on evals** button label.
 - Any new `SkillsTab` strings beyond `agents.skills.*`.
 
 The pr-self-review i18n gate flags a `t("…")` whose key is missing → keep keys in
@@ -323,6 +396,9 @@ Extend the idempotent seed (guard each insert by name/number, like today):
   experiment skills below. Mark **one** `source: 'extracted'` to represent the
   import path (the live import demo is done via UI in validation). Bodies live in
   a new `seed-skills.ts` (mirror `seed-prompts.ts`).
+- **Version history** — seed a few `skill_versions` rows (with `label`s) for
+  `pr-quality-rubric` so the Versions tab is populated in the demo (matches the
+  "5 versions" mockup). Set the skill's `version` to the latest.
 - **Two new agents** (add prompts to `seed-prompts.ts`):
   - **Test Quality Reviewer** — flags uncovered branches, missed corner cases,
     over-mocking, flaky tests.
@@ -365,7 +441,9 @@ Extend the idempotent seed (guard each insert by name/number, like today):
   body change; `agent_skills.enabled` round-trip; `enabledSkillBodies` two-level
   filter.
 - **client (Vitest + jsdom)**: `SkillCard` toggle, `CreateSkillModal` submit,
-  `ImportSkillDrawer` preview→save, `SkillsTab` check/reorder persistence.
+  `ImportSkillDrawer` preview→save, `SkillsTab` check/reorder persistence, the
+  detail **Config** dirty/version behaviour, **Preview** Markdown render,
+  **Versions** list + Restore, **Stats** usage render.
 - Gates: `pnpm -C server typecheck && run arch`, `pnpm -C client typecheck && test`.
   Contract copies must stay byte-identical (drift gate).
 
@@ -373,16 +451,25 @@ Extend the idempotent seed (guard each insert by name/number, like today):
 
 - Import from **URL** and **community catalog** (copy exists in `skills.json` but
   deferred; the drawer shows the **file** path only).
+- The **Evals** tab and **Run on evals** action (user: skip for now) — the tab is
+  rendered as a placeholder, like the not-yet-built agent tabs; no eval pipeline.
+- **Stats analytics** beyond usage: pull frequency, accept rate, findings-by-
+  category, and cost have **no data source** (findings aren't attributed to skills)
+  → shown as **"—" / not tracked yet**, no fabricated numbers (§14). Only USED BY /
+  agents-using are real.
 - Per-prompt-block token badges in the trace (only whole-run tokens shown).
-- Cross-workspace skill sharing; skill-level eval/CI/stats tabs.
+- Cross-workspace skill sharing.
 - Multi-locale i18n (only `en`).
 
 ## 13. Verification (control experiment)
 
 1. `pnpm -C server db:migrate && db:seed`; open the studio.
-2. **Skills page**: create a skill, edit its body → version bumps; import a `.md`
-   (and a `.zip`) → preview shows the parsed skill + `ignored_files`, nothing saved
-   until Save; saved import is `enabled: false`.
+2. **Skills page** (master-detail): create a skill, edit its body in the **Config**
+   tab → version bumps (unsaved indicator clears); **Preview** tab renders the
+   Markdown; **Versions** tab lists the snapshots (Diff/Restore work); import a
+   `.md` (and a `.zip`) → preview shows the parsed skill + `ignored_files`, nothing
+   saved until Save; saved import is `enabled: false`. **Stats** tab shows USED BY +
+   agents-using (real).
 3. **Agent Skills tab**: on Test Quality Reviewer, all skills listed; enable the
    test-quality skill, reorder; save.
 4. **Test Quality experiment**: run the happy-path-only PR with the skill
@@ -397,12 +484,21 @@ Extend the idempotent seed (guard each insert by name/number, like today):
    change set → it pulls **both** frontend and backend skills; resolve any
    findings before pushing.
 
-## 14. Open decisions (surface before implementation)
+## 14. Resolved decisions
 
-- **Nav in vendored UI** — adding the Skills item edits `vendor/ui/nav.ts` (the
-  only copy; no re-sync path). Acceptable one-liner, or prefer wiring nav through
-  `ShellContext` (larger vendored change)? Proposed: edit `nav.ts`.
-- **Import source tag** — `.md`/`.zip` → `source: 'extracted'`; reserve
-  `imported_url` for the deferred URL path. OK?
-- **Preview surface** — side panel on the list page (screenshot 1) vs `/skills/:id`
-  detail page. Proposed: side panel now, detail route optional.
+- **Nav in vendored UI** — RESOLVED (approved): edit `vendor/ui/nav.ts` in place to
+  add the Skills item (the only copy; no re-sync path) rather than wiring nav
+  through `ShellContext`.
+- **Import source tag** — RESOLVED (approved): `.md`/`.zip` → `source: 'extracted'`;
+  `imported_url` reserved for the deferred URL path.
+- **Preview / detail surface** — RESOLVED: a **detail page `/skills/:id`** with
+  tabs (Config / Preview / Evals / Stats / Versions), master-detail with the
+  persistent left list — as the 4 screenshots show. NOTE: this **supersedes** the
+  earlier "side panel now, detail route optional" proposal (which was also OK'd in
+  passing); the screenshots are the source of truth, so the build is the tabbed
+  detail page. Flag if a lighter side-panel is actually preferred.
+- **Stats analytics data** — RESOLVED: render **USED BY + agents-using** from real
+  `agent_skills` data; show **"—" / "not tracked yet"** for pull frequency, accept
+  rate, findings-by-category and cost. **No fabricated numbers** — the layout
+  matches the mockup, the unavailable cards are honestly empty (real attribution is
+  a future lesson). Also drop `% pull / % accept` from the list cards.
