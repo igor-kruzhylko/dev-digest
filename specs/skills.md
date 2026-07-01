@@ -32,16 +32,13 @@ affect a review, the Agent-editor Skills tab, and the demo seed.
 **Net effect:** once run-executor passes an agent's enabled skill bodies to
 `reviewPullRequest`, the block renders in the prompt AND in the trace with no
 engine/trace-UI change. The rest is the CRUD module, import, the Skills page, the
-agent Skills tab, the `enabled` link column, and the seed.
+agent Skills tab, delete protection for linked skills, and the seed.
 
 ## 1. Data model & migration
 
-Add a **per-agent enable** flag to the link table (decision 1, two-level enable):
-
-```ts
-// server/src/db/schema/agents.ts — agentSkills
-enabled: boolean('enabled').notNull().default(true),
-```
+Keep `agent_skills` simple: **do not add a per-agent enable flag**. Link
+presence means "this agent uses this skill"; absence means "not used". The
+existing `order` column is meaningful only for linked skills.
 
 Add an optional **version label** to the snapshot table (the Versions tab shows a
 human label per version, e.g. "Added Tests dimension"):
@@ -53,29 +50,35 @@ label: text('label'),   // nullable; "what changed" note shown in the Versions t
 
 - Generate the migration with `pnpm -C server db:generate` (creates
   `migrations/NNNN_*.sql` + bumps `meta/_journal.json`). **Never hand-edit
-  migrations.** Existing `agent_skills` rows backfill to `enabled = true`; existing
-  `skill_versions` rows get `label = null` (no behaviour change).
-- `skills` is otherwise unchanged (already sufficient).
-- This is a schema change → the pr-self-review migration-drift gate requires the
-  generated migration in the same change set.
-
+  migrations.** Existing `skill_versions` rows get `label = null` (no behaviour
+  change).
+- No `agent_skills.enabled` migration is needed.
+- Deleting a skill is a service-level operation: `skills`/`skill_versions` may
+  cascade when the skill is unused, but `DELETE /skills/:id` must return `409`
+  while any `agent_skills` links exist.
+- This is still a schema change because of `skill_versions.label`; the
+  pr-self-review migration-drift gate requires the generated migration in the
+  same change set.
 ## 2. Shared contracts (`@devdigest/shared`, vendored ×2)
 
-Edit the canonical contracts, then copy **byte-identically** to
-`server/src/vendor/shared` **and** `client/src/vendor/shared`
-(`contracts/knowledge.ts` + re-exports in `index.ts`). No auto-sync exists.
+In this checkout there is no standalone canonical `shared/contracts/knowledge.ts`
+file. Edit the two vendored copies **byte-identically**:
+`server/src/vendor/shared/contracts/knowledge.ts` and
+`client/src/vendor/shared/contracts/knowledge.ts` (plus each `index.ts` if a new
+contract file/export is introduced). If a canonical shared source is restored
+later, edit it first and re-sync the vendors.
 
 **New:**
 
 ```ts
 const SkillWriteInput = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
+  name: z.string().min(1).max(120),
+  description: z.string().min(1).max(500),
   type: SkillType,
-  body: z.string().min(1),
-  source: SkillSource.optional(),      // default 'manual'
-  enabled: z.boolean().optional(),     // default true (manual); false for imports
-  version_label: z.string().optional(),// optional "what changed" note for the snapshot
+  body: z.string().min(1).max(80_000),
+  source: SkillSource.optional(),       // default 'manual'
+  enabled: z.boolean().optional(),      // default true (manual); false for imports
+  version_label: z.string().max(160).optional(),
 });
 export const CreateSkillInput = SkillWriteInput;
 export const UpdateSkillInput = SkillWriteInput.partial();
@@ -84,65 +87,38 @@ export const SkillVersion = z.object({
   skill_id: z.string(),
   version: z.number().int(),
   body: z.string(),
-  label: z.string().nullish(),         // "what changed" note (Versions tab)
+  label: z.string().nullish(),
   created_at: z.string(),
 });
 
-// Powers the card "N agents" line, the Stats "USED BY" card, and the
-// "AGENTS USING THIS SKILL" list. Derived from agent_skills (real data).
 export const SkillUsage = z.object({
   skill_id: z.string(),
   agent_count: z.number().int(),
-  agents: z.array(z.object({ id: z.string(), name: z.string(), enabled: z.boolean() })),
+  agents: z.array(z.object({ id: z.string(), name: z.string() })),
 });
 
-// Import preview — parsed skill DRAFT, never persisted by the preview call.
 export const SkillImportPreview = z.object({
   name: z.string(),
   description: z.string(),
   type: SkillType,
   body: z.string(),
-  source: SkillSource,                 // 'extracted'
-  warnings: z.array(z.string()),       // human notes (e.g. "no frontmatter")
-  ignored_files: z.array(z.string()),  // executable/non-text entries NOT processed
+  source: SkillSource,                  // 'extracted'
+  warnings: z.array(z.string()),
+  ignored_files: z.array(z.string()),
 });
+
 export const ImportSkillInput = z.object({
-  filename: z.string().min(1),
-  content_base64: z.string().min(1),   // .md or .zip, base64-encoded
+  filename: z.string().min(1).max(260),
+  content_base64: z.string().min(1),    // size checked after decode
 });
 ```
 
-**Changed** (extend, keep legacy forms working):
+**Unchanged for agent binding:**
 
-```ts
-export const AgentSkillLink = z.object({
-  agent_id: z.string(),
-  skill_id: z.string(),
-  order: z.number().int(),
-  enabled: z.boolean(),                // NEW: per-agent enable
-});
-
-const AgentSkillLinkInput = z.object({
-  skill_id: z.string().uuid(),
-  order: z.number().int(),
-  enabled: z.boolean().optional(),     // default true
-});
-export const SetAgentSkillsInput = z
-  .object({
-    links: z.array(AgentSkillLinkInput).optional(), // NEW authoritative full set
-    skill_ids: z.array(z.string().uuid()).optional(), // legacy: order=index, enabled=true
-    skill_id: z.string().uuid().optional(),           // legacy: link one
-    order: z.number().int().optional(),
-  })
-  .refine((b) => b.links || b.skill_ids || b.skill_id, {
-    message: 'Provide links, skill_ids, or skill_id',
-    path: ['links'],
-  });
-```
-
-Keeping `skill_ids` / `skill_id` preserves the current agents routes/tests; the
-Skills tab uses the new `links` form.
-
+- `AgentSkillLink` remains `{ agent_id, skill_id, order }`.
+- `SetAgentSkillsInput` keeps the existing `skill_ids` full-set form and
+  `skill_id` single-link form. The Agent Skills tab uses `skill_ids` in desired
+  order; checked = included in `skill_ids`, unchecked = omitted.
 ## 3. Server — skills module
 
 New Fastify module `server/src/modules/skills/` (mirrors the `agents` triple):
@@ -158,7 +134,7 @@ Register in `server/src/modules/index.ts` (`skills` key). Workspace-scoped via
 | `GET /skills/:id` | `IdParams` | `Skill` (404 if absent) |
 | `POST /skills` | `CreateSkillInput` | `201 Skill` |
 | `PUT /skills/:id` | `IdParams`, `UpdateSkillInput` | `Skill` (bumps version + snapshots on body change) |
-| `DELETE /skills/:id` | `IdParams` | `{ ok: true }` (cascades link rows via FK) |
+| `DELETE /skills/:id` | `IdParams` | `{ ok: true }` when unused; `409 skill_in_use` with usage details when linked |
 | `GET /skills/:id/versions` | `IdParams` | `SkillVersion[]` (newest first) |
 | `GET /skills/:id/usage` | `IdParams` | `SkillUsage` (agents linking this skill) |
 | `GET /skills/usage` | — | `SkillUsage[]` (all skills; powers the list cards) |
@@ -178,9 +154,11 @@ version and snapshots — history stays append-only.
   type/enabled) do not bump. Mirrors `isConfigChange` in agents (decision 4).
 - `listVersions(skillId)` — newest first (includes `label`).
 - `usage(skillId)` / `usageAll()` — join `agent_skills` ⋈ `agents` (workspace)
-  → agent id/name/`enabled` per skill. Real data for the card "N agents" line and
-  the Stats "USED BY" / "AGENTS USING THIS SKILL". (The agent side of the join
-  belongs to `agentsRepo`; expose a small read here or delegate — decide in impl.)
+  → agent id/name per skill. Real data for the card "N agents" line and the Stats
+  "USED BY" / "AGENTS USING THIS SKILL".
+- `deleteById(workspaceId, skillId)` checks usage first. If linked, throw an
+  `AppError('skill_in_use', ..., 409, { agents })`; otherwise delete the skill
+  and allow `skill_versions` to cascade.
 - Row type `SkillRow = typeof t.skills.$inferSelect` re-exported from
   `server/src/db/rows.ts` (add it there, next to `AgentRow`).
 
@@ -205,7 +183,11 @@ writes to the DB and never executes anything.** Lives in
 - **Zip**: unzip in memory with **`fflate`** (pure-JS, zero native deps; new
   server dependency). Read `SKILL.md` (or the first root-level `*.md`) and parse
   as above. Every **non-Markdown** entry (scripts, binaries, resources) is listed
-  in `ignored_files` and **not read or run**. `warnings` notes what was skipped.
+  in `ignored_files` and **not run**. Do not parse or inspect non-Markdown
+  payload contents beyond archive metadata needed to list the ignored path.
+- Apply conservative import limits in `constants.ts` (recommended defaults:
+  1 MiB markdown body, 5 MiB base64 request, 10 MiB inflated zip content, 100 zip
+  entries). Oversized input returns `400`.
 - Malformed input (not a zip, no markdown inside, empty body) → `400` with a
   clear message; the client shows it in the drawer (`skills.drawer.importFailed`).
 - **Save is a separate step**: after preview + confirm, the client calls
@@ -218,34 +200,35 @@ the client reads the `File` via `FileReader.readAsDataURL` and strips the prefix
 
 ## 5. Agent binding (Skills tab) — server
 
-- `AgentsRepository.setSkills` gains an overload taking
-  `links: { skillId; order; enabled }[]` and writes `enabled` (replace-all in a
-  transaction, as today). The legacy `skillIds: string[]` path maps to
-  `enabled: true, order: index`.
-- `linkedSkills(agentId)` returns `{ skill, order, enabled }[]` (select the new
-  column; still `ORDER BY order ASC`).
-- New `enabledSkillBodies(agentId): Promise<string[]>` — join `agent_skills` ⋈
-  `skills` where `agent_skills.enabled AND skills.enabled`, `ORDER BY order`,
-  returning `skills.body`. This is the two-level filter (FR-4) and the ONLY thing
-  the run-executor needs.
-- `AgentsService.setSkills` accepts the `links` shape; `skillLinks` includes
-  `enabled` in the returned `AgentSkillLink[]`.
-- Routes: `POST /agents/:id/skills` already validates `SetAgentSkillsInput`; it
-  now also accepts `links`. No new route.
-- **Versioning interaction**: the agent version snapshot records ordered skill
-  ids (`skillIdsForAgent`). Keep recording **enabled** links only in the snapshot
-  (an agent version = what actually ran), so eval replays match. (Confirm in impl;
-  a metadata-only detail.)
-
+- `AgentsRepository.setSkills(agentId, skillIds)` remains the authoritative
+  replace-all operation. It deletes existing links and inserts `skillIds` with
+  `order = index`.
+- `linkedSkills(agentId)` remains `{ skill, order }[]`, ordered by
+  `agent_skills.order`.
+- New `promptSkillBodiesForAgent(agentId): Promise<string[]>` — join
+  `agent_skills` ⋈ `skills` where `skills.enabled = true`, `ORDER BY order`,
+  returning `skills.body`. This is the global-enable + link-presence filter and
+  the only thing the run-executor needs.
+- `AgentsService.setSkills(workspaceId, agentId, skillIds)` must verify:
+  1. the agent belongs to the workspace;
+  2. every submitted skill id belongs to the same workspace.
+  Reject cross-workspace or missing skills before writing links.
+- Routes: `POST /agents/:id/skills` already validates `SetAgentSkillsInput`; the
+  Skills tab uses the existing `skill_ids` full-set form. No new route and no new
+  `links` shape.
+- Versioning interaction: the current `agent_versions.config.skills` snapshot
+  records ordered linked skill ids. For this iteration, past run reproducibility
+  is guaranteed by persisted `run_traces.prompt_assembly.skills`; exact future
+  replay of old agent versions after skill edits is an open question (§15).
 ## 6. Run-executor wiring (makes skills affect reviews)
 
 In `server/src/modules/reviews/run-executor.ts`, `runOneAgent`, before calling
 `reviewPullRequest`:
 
 ```ts
-const skillBodies = await this.agents.enabledSkillBodies(agent.id);
+const skillBodies = await this.agents.promptSkillBodiesForAgent(agent.id);
 if (skillBodies.length > 0) {
-  runLog.info(`Injecting ${skillBodies.length} enabled skill block(s) into the prompt`);
+  runLog.info(`Injecting ${skillBodies.length} linked skill block(s) into the prompt`);
 }
 // …
 const outcome = await reviewPullRequest({
@@ -254,7 +237,7 @@ const outcome = await reviewPullRequest({
   diff,
   llm,
   strategy: agent.strategy ?? REVIEW_STRATEGY,
-  ...(skillBodies.length ? { skills: skillBodies } : {}),   // NEW
+  ...(skillBodies.length ? { skills: skillBodies } : {}),
   ...(callersDigest ? { callers: callersDigest } : {}),
   // …unchanged…
 });
@@ -262,14 +245,11 @@ const outcome = await reviewPullRequest({
 
 - `this.agents` is the injected `AgentsRepository` (already available on the
   executor). No reviewer-core change.
-- The explicit `runLog.info` gives acceptance #4 its **"separate block in the
-  logs"**: enabled skills produce the line + the `## Skills / rules` block in
-  `prompt_assembly.skills`; **zero enabled skills → `skills` omitted → the trace
-  block is absent** (TraceBody guards on `!= null`).
-- **Added tokens**: `tokens_in` rises when skills are injected — the run stats
-  already surface it. A per-block token badge is out of scope (verify by comparing
-  a with-skills vs without-skills run).
-
+- Enabled globally + linked skills produce the log line and the `## Skills /
+  rules` block in `prompt_assembly.skills`; zero active linked skills → `skills`
+  omitted → the trace block is absent (`TraceBody` guards on `!= null`).
+- Added tokens are represented by higher whole-run `tokens_in`. Per-block token
+  attribution is out of scope.
 ## 7. Client
 
 Data access through `src/lib/hooks/*` over `src/lib/api.ts` (components never
@@ -345,11 +325,11 @@ surface — rendered disabled/placeholder). Tabs mirror the Agent editor
   only `ConfigTab`. Add tab routing: on `tab === "skills"` render a new
   `SkillsTab`. Tab labels already exist (`agents.editor.tabs.skills`).
 - `SkillsTab`: list **all** workspace skills (`useSkills`) with a **checkbox**
-  (per-agent `enabled`) and a **drag handle** (order). Header
-  `agents.skills.enabledCount` = "{linked} of {total} enabled";
-  `agents.skills.orderHint` = "Order matters — earlier skills appear earlier…".
-  Persist via `POST /agents/:id/skills` with the `links` array
-  (`{ skill_id, order, enabled }`), seeded from `GET /agents/:id/skills`.
+  (attached to this agent) and a **drag handle** for attached skills. Header can
+  reuse `agents.skills.enabledCount` as "{linked} of {total} linked" unless the
+  copy is renamed; `agents.skills.orderHint` = "Order matters — earlier skills
+  appear earlier…". Persist via `POST /agents/:id/skills` with the existing
+  `skill_ids` array in desired order, seeded from `GET /agents/:id/skills`.
 - Drag-reorder: a lightweight local reorder (index swap) is acceptable; no new
   dnd dependency required.
 
@@ -403,9 +383,10 @@ Extend the idempotent seed (guard each insert by name/number, like today):
   - **Test Quality Reviewer** — flags uncovered branches, missed corner cases,
     over-mocking, flaky tests.
   - **API Contract Reviewer** — flags breaking route-signature / contract changes.
-- **Skills → agents** links (`agent_skills`, `enabled: true`, `order`):
+- **Skills → agents** links (`agent_skills`, ordered by `order`):
   - Test Quality Reviewer ← a `test-quality-rubric` skill (the branch/edge/mocking
-    rubric). Seed as `source: 'extracted'` to satisfy "≥1 via import".
+    rubric). Seed as `source: 'extracted'` to represent imported origin; the live
+    preview→save import path is still validated through UI/API.
   - API Contract Reviewer ← an `api-contract-gate` skill (breaking-change rules).
 - **Two demo PRs** (reviewable **offline**: populate `pr_files.patch` with the
   unified-diff hunk so `loadDiff` reconstructs the diff without a clone —
@@ -435,18 +416,20 @@ Extend the idempotent seed (guard each insert by name/number, like today):
   rendering. Add one asserting order preservation if not present.
 - **server (hermetic)**: `SkillsRepository`/service via mocked container; import
   parser unit tests (md frontmatter, md fallback, zip with ignored executables,
-  malformed input). `run-executor` test: agent with 2 enabled + 1 disabled skill →
-  `reviewPullRequest` receives the 2 bodies in order; all-disabled → no `skills`.
+  malformed/oversized input). `run-executor` test: agent with 2 linked globally
+  enabled skills + 1 globally disabled linked skill → `reviewPullRequest`
+  receives the 2 bodies in order; no active linked skills → no `skills`.
 - **server (`*.it.test.ts`, testcontainers)**: skills CRUD + versioning bump on
-  body change; `agent_skills.enabled` round-trip; `enabledSkillBodies` two-level
-  filter.
+  body change; `agent_skills` set/reorder round-trip; cross-workspace skill ids
+  rejected when setting agent skills; `promptSkillBodiesForAgent` global-enable
+  filter; delete linked skill returns `409 skill_in_use`; delete unlinked skill
+  succeeds.
 - **client (Vitest + jsdom)**: `SkillCard` toggle, `CreateSkillModal` submit,
-  `ImportSkillDrawer` preview→save, `SkillsTab` check/reorder persistence, the
-  detail **Config** dirty/version behaviour, **Preview** Markdown render,
-  **Versions** list + Restore, **Stats** usage render.
+  `ImportSkillDrawer` preview→save, `SkillsTab` check/uncheck/reorder
+  persistence via `skill_ids`, the detail **Config** dirty/version behaviour,
+  **Preview** Markdown render, **Versions** list + Restore, **Stats** usage render.
 - Gates: `pnpm -C server typecheck && run arch`, `pnpm -C client typecheck && test`.
   Contract copies must stay byte-identical (drift gate).
-
 ## 12. Out of scope
 
 - Import from **URL** and **community catalog** (copy exists in `skills.json` but
@@ -464,26 +447,28 @@ Extend the idempotent seed (guard each insert by name/number, like today):
 ## 13. Verification (control experiment)
 
 1. `pnpm -C server db:migrate && db:seed`; open the studio.
-2. **Skills page** (master-detail): create a skill, edit its body in the **Config**
-   tab → version bumps (unsaved indicator clears); **Preview** tab renders the
-   Markdown; **Versions** tab lists the snapshots (Diff/Restore work); import a
-   `.md` (and a `.zip`) → preview shows the parsed skill + `ignored_files`, nothing
-   saved until Save; saved import is `enabled: false`. **Stats** tab shows USED BY +
-   agents-using (real).
-3. **Agent Skills tab**: on Test Quality Reviewer, all skills listed; enable the
+2. **Skills page** (master-detail): create a skill, edit its body in the
+   **Config** tab → version bumps (unsaved indicator clears); **Preview** tab
+   renders the Markdown; **Versions** tab lists the snapshots (Diff/Restore
+   work); import a `.md` (and a `.zip`) → preview shows the parsed skill +
+   `ignored_files`, nothing saved until Save; saved import is `enabled: false`.
+   **Stats** tab shows USED BY + agents-using (real).
+3. **Agent Skills tab**: on Test Quality Reviewer, all skills listed; attach the
    test-quality skill, reorder; save.
 4. **Test Quality experiment**: run the happy-path-only PR with the skill
-   **disabled** → reviewer misses the uncovered branch (pass). Enable → re-run →
-   flags the uncovered branch + boundary case. Open the run trace → prompt
-   assembly shows the **Skills** block; `tokens_in` higher than the no-skill run.
+   unlinked (or globally disabled) → reviewer misses the uncovered branch
+   (demo pass). Link + globally enable → re-run → flags the uncovered branch +
+   boundary case. Open the run trace → prompt assembly shows the **Skills**
+   block; `tokens_in` higher than the no-skill run.
 5. **API Contract experiment**: same with the route-signature PR and the
    api-contract skill.
-6. **Logs**: the enabled run's Live Log shows "Injecting N enabled skill block(s)";
-   the disabled run does not, and its trace has no Skills block.
-7. **pr-self-review** (auto-invoke still disabled): run it manually over this
+6. **Logs**: the active linked run's Live Log shows "Injecting N linked skill
+   block(s)"; the no-active-skill run does not, and its trace has no Skills block.
+7. **Delete guard**: try deleting a skill linked to an agent → API/UI blocks with
+   usage; unlink it from all agents → delete succeeds.
+8. **pr-self-review** (auto-invoke still disabled): run it manually over this
    change set → it pulls **both** frontend and backend skills; resolve any
    findings before pushing.
-
 ## 14. Resolved decisions
 
 - **Nav in vendored UI** — RESOLVED (approved): edit `vendor/ui/nav.ts` in place to
@@ -493,12 +478,36 @@ Extend the idempotent seed (guard each insert by name/number, like today):
   `imported_url` reserved for the deferred URL path.
 - **Preview / detail surface** — RESOLVED: a **detail page `/skills/:id`** with
   tabs (Config / Preview / Evals / Stats / Versions), master-detail with the
-  persistent left list — as the 4 screenshots show. NOTE: this **supersedes** the
-  earlier "side panel now, detail route optional" proposal (which was also OK'd in
-  passing); the screenshots are the source of truth, so the build is the tabbed
-  detail page. Flag if a lighter side-panel is actually preferred.
+  persistent left list — as the screenshots show. This supersedes the earlier
+  "side panel now, detail route optional" wording in the product draft.
 - **Stats analytics data** — RESOLVED: render **USED BY + agents-using** from real
   `agent_skills` data; show **"—" / "not tracked yet"** for pull frequency, accept
   rate, findings-by-category and cost. **No fabricated numbers** — the layout
-  matches the mockup, the unavailable cards are honestly empty (real attribution is
-  a future lesson). Also drop `% pull / % accept` from the list cards.
+  matches the mockup, the unavailable cards are honestly empty (real attribution
+  is a future lesson). Also drop `% pull / % accept` from the list cards.
+- **Per-agent skill state** — RESOLVED: no `agent_skills.enabled`. Link presence
+  means active for that agent; unchecking removes the link. Global
+  `skills.enabled` remains the library-level kill switch.
+- **Delete semantics** — RESOLVED: deleting a linked skill is blocked with `409`
+  and usage details. Unlinked skills can be deleted; their versions cascade.
+
+## 15. Open questions and recommendations
+
+1. **Exact replay of old agent versions after skill edits.**
+   Recommendation: keep v1 simple. Persisted run traces already capture the exact
+   injected Skills block for completed runs. Do not add skill-version references
+   to `agent_versions` until eval replay requires it.
+
+2. **Control experiment determinism with live LLMs.**
+   Recommendation: treat the seeded PRs as a demo validation, not a CI gate. Cover
+   deterministic behaviour with mock-LLM tests that assert skills are passed to
+   `reviewPullRequest` in order and omitted when not active.
+
+3. **Canonical shared contracts source.**
+   Recommendation: for this task, edit the two vendored copies byte-identically
+   because that is the current checkout reality. Separately decide whether to
+   introduce a real canonical `shared/` source later.
+
+4. **Import limits exact values.**
+   Recommendation: use the conservative constants in §4 for the first version and
+   tune only if real skill packages exceed them.

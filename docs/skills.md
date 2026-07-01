@@ -36,15 +36,18 @@ provider, output schema, or any executable behaviour of its own.
 
 - Let a user **author skills** (name, description, type, Markdown body) in the UI
   and reuse them across multiple agents.
-- Give skills their own **library page**: a grid of cards (name, type, description,
-  enabled toggle), a side preview on click, and an **Add** action (Create /
-  Import).
+- Give skills their own **library page**: a two-pane master-detail view with a
+  left list of cards (name, type, description, enabled toggle) and a right detail
+  pane with Config / Preview / Stats / Versions tabs. The **Add** action offers
+  Create / Import.
 - Let a user **bind skills to an agent** from a Skills tab in the Agent editor:
-  attach, enable/disable per agent, and reorder. **Order defines the sequence of
-  skill blocks in the prompt.**
+  attach/unlink and reorder. **Order defines the sequence of skill bodies in the
+  prompt's Skills section.**
 - **Actually inject** each agent's enabled skills into its review prompt, so
-  skills change review behaviour — and make the injected block **visible in the
-  run trace** (prompt-assembly section) with its added token count.
+  skills change review behaviour — and make the injected **Skills section**
+  visible in the run trace (prompt-assembly section). Whole-run `tokens_in`
+  should increase when skills are injected; per-section token attribution is out
+  of scope for this iteration.
 - Support **import** of a skill from a Markdown file or an archive, with a
   **preview-before-save** step and an explicit **trust** message; **executable
   parts of an archive are never run**.
@@ -63,7 +66,9 @@ provider, output schema, or any executable behaviour of its own.
 - No community marketplace / remote skill registry browsing (the `community`
   source and `CommunitySkill` contract already exist in the schema but are not
   part of this build).
-- No eval/CI tabs for skills, no skill-level analytics.
+- No functional eval/CI tabs for skills, no skill-level analytics. A disabled
+  placeholder tab/button may be shown if needed to match the current design
+  direction, but it does not execute evals.
 - No cross-workspace sharing — skills are workspace-scoped, like agents.
 
 ## Personas
@@ -80,23 +85,24 @@ provider, output schema, or any executable behaviour of its own.
 1. **As an author**, I can open the Skills page, click Add → Create, fill in name,
    description, type, and a Markdown body, and save — so the rule now exists once
    and can be reused.
-2. **As an author**, I can click a skill card to preview its body in a side panel,
+2. **As an author**, I can click a skill card to preview its body in the detail pane,
    and edit it; my edits are versioned so I can see it changed.
 3. **As an author**, I can toggle a skill **enabled/disabled** in the library; a
    disabled skill contributes to **no** agent's prompt.
 4. **As an agent configurator**, I open an agent's **Skills** tab, see all
    workspace skills, check the ones this agent should use, drag to reorder them,
-   and the agent's prompt is assembled with those skill blocks in that order.
-5. **As an agent configurator**, I can disable a single skill for one agent without
-   removing it from other agents or from the library.
+   and the agent's prompt is assembled with those skill bodies in that order.
+5. **As an agent configurator**, I can remove a single skill from one agent
+   without affecting other agents or deleting it from the library.
 6. **As an importer**, I can Add → Import a `.md` file or a `.zip` skill package;
    the product extracts the skill's core (title/description/type + Markdown body),
    shows me a **preview**, and warns me that **a foreign skill is foreign
    instructions inside my agent's prompt** — nothing is saved until I confirm, and
    no executable part of the archive is run.
 7. **As a reviewer of a run**, I can open a run's trace, find the prompt-assembly
-   section, and see the **Skills block** that was injected and the **tokens** it
-   added — enabled skills appear as their own block; disabled skills do not.
+   section, and see the **Skills block** that was injected. Runs with injected
+   skills show higher whole-run `tokens_in`; runs with no active linked skills do
+   not show a Skills block.
 
 ## Functional requirements
 
@@ -104,9 +110,9 @@ provider, output schema, or any executable behaviour of its own.
 
 - The server owns a **CRUD module over the `skills` table**; the database is the
   source of truth. Skills are **workspace-scoped**.
-- The Skills page shows a **grid of cards**: name, **type** badge, description, and
-  an **enabled** toggle. Clicking a card opens a **side preview** (rendered body +
-  metadata).
+- The Skills page shows a **two-pane master-detail view**: a left list of skill
+  cards (name, **type** badge, description, and an **enabled** toggle) and a right
+  detail pane with rendered preview, editable configuration, usage, and versions.
 - An **Add** control offers **Create** or **Import**.
 
 ### FR-2 Skill editor
@@ -123,33 +129,36 @@ provider, output schema, or any executable behaviour of its own.
 ### FR-3 Binding to an agent
 
 - The Agent editor gains a **Skills tab**: it lists **all** workspace skills with a
-  **checkbox** (enable/disable for this agent) and a **drag handle** (order).
-- **Order determines the block order in the assembled prompt** (earlier skill →
-  earlier block).
-- Enabling/disabling/reordering for one agent does not affect other agents.
+  **checkbox** (attached/unattached for this agent) and a **drag handle** (order)
+  for attached skills.
+- **Order determines the order of skill bodies in the assembled prompt's Skills
+  section** (earlier attached skill → earlier body in the section).
+- Attaching/unlinking/reordering for one agent does not affect other agents.
 
-### FR-4 Two-level enable / effect on prompt
+### FR-4 Global enable + agent link / effect on prompt
 
-There are **two independent enable levels**:
+There are two gates before a skill contributes to an agent's prompt:
 
 - **Global** — `skill.enabled` on the Skills page (is the skill active in the
   workspace's library at all).
-- **Per-agent** — the checkbox in an agent's Skills tab (is this skill used by
-  this agent).
+- **Agent link** — a row in `agent_skills` (is this skill attached to this
+  agent).
 
-A skill contributes a prompt block for an agent **only if it is enabled globally
-AND enabled on that agent**. This requires an **`enabled` flag on the agent–skill
-link** in addition to `order`.
+A skill contributes to an agent's Skills section **only if it is globally enabled
+AND linked to that agent**. There is no separate per-agent `enabled` column:
+checked in the Agent Skills tab means a row exists in `agent_skills`; unchecked
+means no row exists. This keeps the data model and tests smaller for the first
+version.
 
 ### FR-5 Injection into reviews & observability
 
-- When an agent runs a review, its **enabled** linked skills (respecting global +
-  per-agent enable, in order) are **resolved to their bodies and injected** into
-  the review prompt as the `## Skills / rules` block (engine support already
-  exists; the wiring in the run executor does not).
+- When an agent runs a review, its **globally enabled, linked** skills (in link
+  order) are **resolved to their bodies and injected** into the review prompt as
+  the `## Skills / rules` block (engine support already exists; the wiring in the
+  run executor does not).
 - The run **trace's prompt-assembly** section shows the injected Skills block and
-  the tokens it added. An **enabled** skill appears as its own block; a
-  **disabled** skill does not appear at all.
+  the whole-run token totals. If no active linked skills exist, the Skills block
+  does not appear at all.
 
 ### FR-6 Import
 
@@ -179,7 +188,14 @@ Seed data ships so the feature — and its effect — is demonstrable out of the
   - **API Contract**: a PR that changes a route signature → **without skills** the
     reviewer passes it (miss); **with skills** it detects the breaking change.
 - Opening the run's trace → prompt-assembly section shows the **Skills block** and
-  the added tokens.
+  higher whole-run `tokens_in` than the no-skill run.
+
+### FR-8 Delete safety
+
+- Deleting a skill from the library is blocked while it is linked to one or more
+  agents. The API returns a conflict response with usage information; the user
+  must unlink the skill from those agents before deleting it.
+- Skill versions may still be cascaded when an unlinked skill is deleted.
 
 ## Trust model (called out explicitly)
 
@@ -207,8 +223,8 @@ The feature is done when:
 2. A skill can be **created and edited in the UI**.
 3. Both new agents (**Test Quality Reviewer**, **API Contract Reviewer**) have
    **bound skills**.
-4. An **enabled** skill is visible in the run logs / trace as its **own block**; a
-   **disabled** one is **not**.
+4. A run with active linked skills shows an explicit log line and a Skills block
+   in the trace; a run with no active linked skills does not.
 5. **Import** went through a **preview**, and **no executable content was run**.
 6. The **control experiment reproduces on both agents**: without skills the
    reviewer misses the issue; with skills it flags the uncovered branch / boundary
@@ -216,9 +232,11 @@ The feature is done when:
 
 ## Decisions (resolved with stakeholder)
 
-1. **Enable model — two levels.** Global `skill.enabled` (library) **plus** a
-   per-agent enable on the `agent_skills` link. A skill is injected only when
-   enabled at both levels. → adds an `enabled` column to `agent_skills`.
+1. **Enable model — simplified.** Global `skill.enabled` controls whether the
+   skill is active in the library. Per-agent usage is represented by link
+   presence in `agent_skills`; no extra `agent_skills.enabled` column is added.
+   Unchecking a skill in an agent removes the link. This keeps the first version
+   simpler and avoids persisting inactive links.
 2. **Import scope — Markdown + archive.** Accept `.md` (optional YAML frontmatter
    for name/description/type) and a `.zip` skill package (read `SKILL.md`; ignore
    scripts/executables). Preview before save.
@@ -234,8 +252,11 @@ The feature is done when:
 `assemblePrompt`'s `## Skills / rules` block and its prompt-assembly trace record.
 
 **New in this build:** skills CRUD module (server) + `Create/UpdateSkillInput`
-contracts; an `enabled` column on `agent_skills`; run-executor wiring to load &
-inject an agent's enabled skills; import (Markdown + zip) with preview; the Skills
-page, skill editor, and skills hook (client); the Agent editor's Skills tab; the
-demo seed (agents + skills + PRs). Contract changes must be applied to **every
-vendored copy** by hand (`server/src/vendor/shared`, `client/src/vendor/shared`).
+contracts; run-executor wiring to load & inject an agent's globally enabled,
+linked skills; import (Markdown + zip) with preview; delete protection for linked
+skills; the Skills page, skill editor, and skills hook (client); the Agent
+editor's Skills tab; the demo seed (agents + skills + PRs). Contract changes must
+be applied to **every vendored copy** by hand (`server/src/vendor/shared`,
+`client/src/vendor/shared`).
+
+
