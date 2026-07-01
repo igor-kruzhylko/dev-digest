@@ -19,6 +19,7 @@ On Windows: run `git config core.symlinks true` and enable Developer Mode (or an
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
+| [pr-self-review](pr-self-review/SKILL.md) | Tooling | Local pre-PR gate: routes skills + runs deterministic/silent-break gates over open changes, scores like the cloud review, blocks push/PR on any Critical |
 
 ## What Are Skills?
 
