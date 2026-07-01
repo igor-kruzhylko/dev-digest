@@ -31,8 +31,20 @@ repo (they never write source, run migrations, or touch the index). Run them wit
 
 ## Procedure
 
-Follow these steps in order. Do not skip the gates, and do not write a pass marker
-unless the verdict is clean.
+Follow these steps in order.
+
+**ALWAYS**
+- Run both gate scripts before assembling findings, even when the qualitative pass
+  looks clean — they are the source of truth for mechanical failures.
+- Ground every skill finding against a real, changed `file:line` before it reaches
+  the report.
+- Write a marker that matches the actual verdict.
+
+**NEVER**
+- Skip a gate because the diff looks small or safe.
+- Report a finding you can't cite as a changed `file:line` in the diff.
+- Write a `pass` marker while any `CRITICAL` finding is open, or invent findings to
+  hit a target count — zero findings is a good result.
 
 ### 1. Scope the change set
 Run `node .claude/skills/pr-self-review/scripts/diff.mjs`.
@@ -43,8 +55,7 @@ Run `node .claude/skills/pr-self-review/scripts/diff.mjs`.
   `warnings` (e.g. no integration branch found — surface it).
 
 ### 2. Run the deterministic gates
-These are the source of truth for mechanical failures; run both and collect their
-`findings` (each is already shaped as a finding):
+Run both and collect their `findings` (each is already shaped as a finding):
 - `node .claude/skills/pr-self-review/scripts/gates.mjs` — per-package typecheck /
   arch / unit tests. **Slow** — you may run it with `run_in_background: true` and
   collect the result after step 3.
@@ -55,8 +66,9 @@ These are the source of truth for mechanical failures; run both and collect thei
 For each path in `reviewFiles`, pick its surface from the table below, then **read
 the changed hunks** (`git diff <base> -- <file>`, where `<base>` is `diff.mjs`'s
 `base`) and evaluate them against the guidance in each routed skill's
-`.claude/skills/<skill>/SKILL.md`. Raise a finding only where a **changed line**
-breaks a rule.
+`.claude/skills/<skill>/SKILL.md`. **ALWAYS** raise a finding only where a
+**changed line** breaks a rule — **NEVER** flag pre-existing code the diff didn't
+touch.
 
 | Surface | Paths | Apply these skills |
 |---|---|---|
@@ -64,17 +76,17 @@ breaks a rule.
 | Backend / domain | `server/src/**`, `reviewer-core/src/**` (`.ts`) | onion-architecture · fastify-best-practices · drizzle-orm-patterns · postgresql-table-design |
 | Cross-cutting | either surface | typescript-expert · zod · security |
 
-Load only the skills whose surface actually appears in `reviewFiles`. Excluded from
-this pass: `server/clones/**`, `**/src/vendor/**`, build output (the silent-break
-gates already handle those).
+Load only the skills whose surface actually appears in `reviewFiles`. **NEVER**
+review `server/clones/**`, `**/src/vendor/**`, or build output in this pass — the
+silent-break gates already handle those.
 
 ### 4. Ground, then assemble
-- **Grounding (mandatory):** drop any skill finding whose `file` + line range does not
+- **ALWAYS ground:** drop any skill finding whose `file` + line range does not
   intersect a changed hunk in the diff. If you can't cite a real changed `file:line`,
   it is not a finding.
-- **Anti-inflation:** speculative issues ("might be", "if not already handled") are at
-  most `WARNING`. No duplicates. There is no target count — zero findings is a good
-  result.
+- **NEVER inflate:** speculative issues ("might be", "if not already handled") are at
+  most `WARNING`, never `CRITICAL`. No duplicates. There is no target count — zero
+  findings is a good result.
 - Combine gate findings + silent-break findings + grounded skill findings. Each finding
   has: `severity`, `title`, `file`, `start_line`, `end_line`, `rationale`, `suggestion`
   (the fix hint), `source` (the skill or gate that raised it).
@@ -103,6 +115,8 @@ End with one line: if blocked, `Blocked — resolve the CRITICAL(s), then re-run
 If clean, `Clean — pass marker written; push / PR allowed.`
 
 ### 6. Marker
+**NEVER** write `pass` when the verdict is `request_changes`, or `clear` when it
+isn't — the marker must match the verdict exactly.
 - **Clean** (verdict `approve` or `comment`):
   `node .claude/skills/pr-self-review/scripts/marker.mjs pass --verdict <verdict> --score <N> --critical 0 --warning <W> --suggestion <S>`
 - **Blocked** (verdict `request_changes`):
