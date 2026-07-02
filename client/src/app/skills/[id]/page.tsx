@@ -1,11 +1,14 @@
 "use client";
 
+import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Dropdown } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
 import { useSkills, useUpdateSkill } from "@/lib/hooks/skills";
 import { SkillCard } from "../_components/SkillCard";
+import { CreateSkillModal } from "../_components/SkillsListView/_components/CreateSkillModal";
+import { ImportSkillDrawer } from "../_components/SkillsListView/_components/ImportSkillDrawer";
 import { SkillDetail } from "./_components/SkillDetail";
 
 /* Route: /skills/:id — Skill Editor (mirrors /agents/:id's AgentEditorPage).
@@ -18,6 +21,8 @@ export default function SkillDetailPage() {
 
   const { data: skills } = useSkills();
   const update = useUpdateSkill();
+  const [creating, setCreating] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
 
   const crumb = [
     { label: t("page.crumbLab") },
@@ -27,6 +32,8 @@ export default function SkillDetailPage() {
 
   return (
     <AppShell crumb={crumb}>
+      {creating && <CreateSkillModal onClose={() => setCreating(false)} />}
+      {importing && <ImportSkillDrawer onClose={() => setImporting(false)} />}
       <div style={{ display: "flex", height: "calc(100vh - 52px)" }}>
         {/* left: skill list */}
         <div
@@ -46,11 +53,14 @@ export default function SkillDetailPage() {
                 width={210}
                 align="right"
                 trigger={
-                  <Button kind="primary" size="sm" icon="Plus">
+                  <Button kind="primary" size="sm" icon="Plus" iconRight="ChevronDown">
                     {t("page.addSkill")}
                   </Button>
                 }
-                items={[{ label: "Create from scratch", icon: "Edit", onClick: () => router.push("/skills") }]}
+                items={[
+                  { label: "Create", icon: "Edit", onClick: () => setCreating(true) },
+                  { label: t("page.menu.fromFile"), icon: "File", onClick: () => setImporting(true) },
+                ]}
               />
             </div>
           </div>
