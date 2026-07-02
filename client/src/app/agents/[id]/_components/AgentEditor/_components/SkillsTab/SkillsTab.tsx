@@ -10,15 +10,18 @@ import { s } from "./styles";
 
 /**
  * Skills tab — attach/detach + reorder the agent's linked skills. Lists ALL
- * workspace skills (checkbox = linked) with up/down reordering for the
- * attached ones. Every check/uncheck/reorder persists immediately via
- * POST /agents/:id/skills (skill_ids full-set replace), mirroring the
- * enabled-toggle's instant-persist convention elsewhere in this app.
+ * workspace skills (checkbox = linked) with drag-and-drop reordering (via a
+ * grip handle) for the attached ones. Every check/uncheck/reorder persists
+ * immediately via POST /agents/:id/skills (skill_ids full-set replace),
+ * mirroring the enabled-toggle's instant-persist convention elsewhere in
+ * this app.
  */
 export function SkillsTab({ agent }: { agent: Agent }) {
   const t = useTranslations("agents");
   const tSkills = useTranslations("skills");
   const [search, setSearch] = React.useState("");
+  const [draggedId, setDraggedId] = React.useState<string | null>(null);
+  const [overId, setOverId] = React.useState<string | null>(null);
 
   const { data: allSkills, isLoading: skillsLoading, isError, refetch } = useSkills();
   const { data: links, isLoading: linksLoading } = useAgentSkills(agent.id);
@@ -54,26 +57,30 @@ export function SkillsTab({ agent }: { agent: Agent }) {
     persist(checked ? [...linkedOrder, skillId] : linkedOrder.filter((id) => id !== skillId));
   };
 
-  const move = (index: number, dir: -1 | 1) => {
-    const target = index + dir;
-    if (target < 0 || target >= linkedOrder.length) return;
+  const reorder = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const from = linkedOrder.indexOf(fromId);
+    const to = linkedOrder.indexOf(toId);
+    if (from === -1 || to === -1) return;
     const next = [...linkedOrder];
-    [next[index], next[target]] = [next[target]!, next[index]!];
+    next.splice(from, 1);
+    next.splice(to, 0, fromId);
     persist(next);
   };
 
   return (
     <div style={s.wrap}>
       <div style={s.header}>
-        <h2 style={s.h2}>{t("skills.title")}</h2>
         <span style={s.count}>
           {t("skills.enabledCount", { linked: linkedOrder.length, total: allSkills.length })}
         </span>
+        {allSkills.length > 0 && (
+          <div style={s.filterWrap}>
+            <TextInput value={search} onChange={setSearch} placeholder={t("skills.filterPlaceholder")} />
+          </div>
+        )}
       </div>
       <p style={s.hint}>{t("skills.orderHint")}</p>
-      {allSkills.length > 0 && (
-        <TextInput value={search} onChange={setSearch} placeholder={t("skills.filterPlaceholder")} />
-      )}
 
       {allSkills.length === 0 ? (
         <div style={s.empty}>{t("skills.empty")}</div>
@@ -81,46 +88,81 @@ export function SkillsTab({ agent }: { agent: Agent }) {
         <div style={s.empty}>{t("skills.noMatch")}</div>
       ) : (
         <div style={s.list}>
-          {rows.map((skillId) => {
+          {rows.map((skillId, i) => {
             const skill = byId.get(skillId);
             if (!skill) return null;
-            const attachedIndex = linkedOrder.indexOf(skillId);
-            const attached = attachedIndex !== -1;
+            const attached = linkedOrder.includes(skillId);
+            const prevId = rows[i - 1];
+            const groupGap = i > 0 && !!prevId && linkedOrder.includes(prevId) && !attached;
             return (
-              <div key={skillId} style={s.row}>
-                <Checkbox
-                  checked={attached}
-                  onChange={(v) => toggle(skillId, v)}
-                  label={
-                    <span style={s.rowLabel}>
-                      <span className="mono">{skill.name}</span>
-                      <Badge color="var(--text-secondary)">{tSkills(`listItem.type.${skill.type}`)}</Badge>
-                      {!skill.enabled && <Badge color="var(--text-muted)">{tSkills("preview.disabled")}</Badge>}
-                    </span>
-                  }
-                />
-                {attached && (
-                  <div style={s.reorder}>
-                    <button
-                      type="button"
-                      aria-label={t("skills.moveUp")}
-                      style={s.reorderBtn}
-                      disabled={attachedIndex === 0 || setSkills.isPending}
-                      onClick={() => move(attachedIndex, -1)}
-                    >
-                      <Icon.ArrowUp size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={t("skills.moveDown")}
-                      style={s.reorderBtn}
-                      disabled={attachedIndex === linkedOrder.length - 1 || setSkills.isPending}
-                      onClick={() => move(attachedIndex, 1)}
-                    >
-                      <Icon.ArrowDown size={13} />
-                    </button>
+              <div
+                key={skillId}
+                data-skill-row={skillId}
+                style={{
+                  ...s.row,
+                  ...(groupGap ? s.rowGroupGap : {}),
+                  ...(draggedId === skillId ? s.rowDragging : {}),
+                  ...(overId === skillId && draggedId && draggedId !== skillId ? s.rowDragOver : {}),
+                }}
+                onDragOver={
+                  attached
+                    ? (e) => {
+                        if (!draggedId) return;
+                        e.preventDefault();
+                        setOverId(skillId);
+                      }
+                    : undefined
+                }
+                onDragLeave={attached ? () => setOverId((id) => (id === skillId ? null : id)) : undefined}
+                onDrop={
+                  attached
+                    ? (e) => {
+                        e.preventDefault();
+                        if (draggedId) reorder(draggedId, skillId);
+                        setDraggedId(null);
+                        setOverId(null);
+                      }
+                    : undefined
+                }
+              >
+                <div style={s.rowLeft}>
+                  <div style={s.handleSlot}>
+                    {attached && (
+                      <button
+                        type="button"
+                        aria-label={t("skills.dragHandle")}
+                        style={s.dragHandle}
+                        draggable={!setSkills.isPending}
+                        onDragStart={(e) => {
+                          setDraggedId(skillId);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", skillId);
+                          // Drag the whole row as the drag image, not just this handle button.
+                          const row = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-skill-row]");
+                          if (row && typeof e.dataTransfer.setDragImage === "function") {
+                            const rect = row.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top);
+                          }
+                        }}
+                        onDragEnd={() => {
+                          setDraggedId(null);
+                          setOverId(null);
+                        }}
+                      >
+                        <Icon.GripVertical size={14} />
+                      </button>
+                    )}
                   </div>
-                )}
+                  <Checkbox
+                    checked={attached}
+                    onChange={(v) => toggle(skillId, v)}
+                    label={<span className="mono">{skill.name}</span>}
+                  />
+                </div>
+                <div style={s.rowRight}>
+                  <Badge color="var(--text-secondary)">{tSkills(`listItem.type.${skill.type}`)}</Badge>
+                  {!skill.enabled && <Badge color="var(--text-muted)">{tSkills("preview.disabled")}</Badge>}
+                </div>
               </div>
             );
           })}

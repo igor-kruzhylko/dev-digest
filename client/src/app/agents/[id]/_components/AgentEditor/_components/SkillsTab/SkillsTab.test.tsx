@@ -51,12 +51,23 @@ const SKILLS: Skill[] = [
     enabled: true,
     version: 1,
   },
+  {
+    id: "sk-d",
+    name: "skill-d",
+    description: "D",
+    type: "custom",
+    source: "manual",
+    body: "d",
+    enabled: true,
+    version: 1,
+  },
 ];
 
-// a + b linked, in that order; c is unattached.
+// a + b + c linked, in that order; d is unattached.
 const LINKS: AgentSkillLink[] = [
   { agent_id: "ag1", skill_id: "sk-a", order: 0 },
   { agent_id: "ag1", skill_id: "sk-b", order: 1 },
+  { agent_id: "ag1", skill_id: "sk-c", order: 2 },
 ];
 
 const mutate = vi.fn();
@@ -88,30 +99,48 @@ function renderWithIntl(ui: React.ReactElement) {
 describe("SkillsTab (smoke)", () => {
   it("lists all workspace skills, linked ones checked, in link order first", () => {
     renderWithIntl(<SkillsTab agent={AGENT} />);
-    expect(screen.getByText("2 of 3 linked")).toBeInTheDocument();
-    const rows = screen.getAllByText(/skill-[abc]/).map((el) => el.textContent);
-    expect(rows).toEqual(["skill-a", "skill-b", "skill-c"]);
+    expect(screen.getByText("3 of 4 linked")).toBeInTheDocument();
+    const rows = screen.getAllByText(/skill-[abcd]/).map((el) => el.textContent);
+    expect(rows).toEqual(["skill-a", "skill-b", "skill-c", "skill-d"]);
   });
 
   it("checking an unattached skill persists it appended to the linked order", () => {
     renderWithIntl(<SkillsTab agent={AGENT} />);
-    const label = screen.getByText("skill-c").closest("label") as HTMLElement;
+    const label = screen.getByText("skill-d").closest("label") as HTMLElement;
     fireEvent.click(within(label).getByRole("checkbox"));
-    expect(mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["sk-a", "sk-b", "sk-c"] });
+    expect(mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["sk-a", "sk-b", "sk-c", "sk-d"] });
   });
 
   it("unchecking a linked skill persists it removed", () => {
     renderWithIntl(<SkillsTab agent={AGENT} />);
     const label = screen.getByText("skill-a").closest("label") as HTMLElement;
     fireEvent.click(within(label).getByRole("checkbox"));
-    expect(mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["sk-b"] });
+    expect(mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["sk-b", "sk-c"] });
   });
 
-  it("moving the second linked skill up swaps the persisted order", () => {
+  it("dragging the second linked skill onto the first persists the swapped order", () => {
     renderWithIntl(<SkillsTab agent={AGENT} />);
-    const moveUpButtons = screen.getAllByLabelText("Move up");
-    // First linked row (skill-a) has its "Move up" disabled; the second (skill-b) is enabled.
-    fireEvent.click(moveUpButtons[1]!);
-    expect(mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["sk-b", "sk-a"] });
+    const handles = screen.getAllByLabelText("Drag to reorder");
+    const rowOf = (text: string) =>
+      screen.getByText(text).closest("label")!.parentElement!.parentElement as HTMLElement;
+    const dataTransfer = { setData: vi.fn(), setDragImage: vi.fn(), effectAllowed: "" };
+    // handles[0] = skill-a's handle, handles[1] = skill-b's handle.
+    fireEvent.dragStart(handles[1]!, { dataTransfer });
+    fireEvent.dragOver(rowOf("skill-a"), { dataTransfer });
+    fireEvent.drop(rowOf("skill-a"), { dataTransfer });
+    expect(mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["sk-b", "sk-a", "sk-c"] });
+  });
+
+  it("dragging the first linked skill onto the third lands it at the third slot (not the second)", () => {
+    renderWithIntl(<SkillsTab agent={AGENT} />);
+    const handles = screen.getAllByLabelText("Drag to reorder");
+    const rowOf = (text: string) =>
+      screen.getByText(text).closest("label")!.parentElement!.parentElement as HTMLElement;
+    const dataTransfer = { setData: vi.fn(), setDragImage: vi.fn(), effectAllowed: "" };
+    // handles[0] = skill-a's handle (dragged onto skill-c, the third linked row).
+    fireEvent.dragStart(handles[0]!, { dataTransfer });
+    fireEvent.dragOver(rowOf("skill-c"), { dataTransfer });
+    fireEvent.drop(rowOf("skill-c"), { dataTransfer });
+    expect(mutate).toHaveBeenCalledWith({ agentId: "ag1", skillIds: ["sk-b", "sk-c", "sk-a"] });
   });
 });
