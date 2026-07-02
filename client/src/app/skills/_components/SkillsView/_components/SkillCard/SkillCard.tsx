@@ -1,0 +1,95 @@
+/* SkillCard — type badge, source label, enabled toggle, agent count, delete.
+   Mirrors AgentCard's interaction pattern (stopPropagation on interactive
+   children so clicking the toggle/delete doesn't navigate). */
+"use client";
+
+import React from "react";
+import { useTranslations } from "next-intl";
+import { Icon, Badge, Toggle } from "@devdigest/ui";
+import type { Skill } from "@devdigest/shared";
+import { useDeleteSkill } from "@/lib/hooks/skills";
+import { ApiError } from "@/lib/api";
+import { typeColor } from "./helpers";
+import { s } from "./styles";
+
+export function SkillCard({
+  skill,
+  active,
+  agentCount,
+  onClick,
+  onToggle,
+}: {
+  skill: Skill;
+  active?: boolean;
+  agentCount?: number;
+  onClick?: () => void;
+  onToggle?: (enabled: boolean) => void;
+}) {
+  const t = useTranslations("skills");
+  const del = useDeleteSkill();
+  const color = typeColor(skill.type);
+  const needsVetting = skill.source !== "manual" && !skill.enabled;
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete skill "${skill.name}"? This cannot be undone.`)) return;
+    del.mutate(skill.id, {
+      onError: (err) => {
+        if (err instanceof ApiError && err.code === "skill_in_use") {
+          const agents = (err.details as { agents?: { id: string; name: string }[] } | undefined)?.agents ?? [];
+          window.alert(
+            t("listItem.deleteBlocked", {
+              count: agents.length,
+              names: agents.map((a) => a.name).join(", "),
+            }),
+          );
+        }
+      },
+    });
+  };
+
+  return (
+    <div onClick={onClick} style={s.card(!!active, skill.enabled)}>
+      <div style={s.headerRow}>
+        <div style={s.iconBox}>
+          <Icon.Sparkles size={15} />
+        </div>
+        <span className="mono" style={s.name}>
+          {skill.name}
+        </span>
+        {onToggle && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Toggle on={skill.enabled} onChange={onToggle} size={14} />
+          </div>
+        )}
+        <button
+          onClick={handleDelete}
+          disabled={del.isPending}
+          title="Delete skill"
+          aria-label="Delete skill"
+          style={{ ...s.deleteBtn, cursor: del.isPending ? "not-allowed" : "pointer" }}
+        >
+          <Icon.Trash size={14} style={del.isPending ? { animation: "ddspin 1s linear infinite" } : undefined} />
+        </button>
+      </div>
+      <div style={s.description}>{skill.description}</div>
+      <div style={s.metaRow}>
+        <Badge color={color} bg={color + "1a"}>
+          {t(`listItem.type.${skill.type}`)}
+        </Badge>
+        <span style={s.sourceLabel}>{t(`listItem.source.${skill.source}`)}</span>
+        {agentCount != null && (
+          <Badge color="var(--text-secondary)" icon="Users">
+            {t("listItem.agentsCount", { count: agentCount })}
+          </Badge>
+        )}
+      </div>
+      {needsVetting && (
+        <div style={s.vettingRow} title={t("listItem.vettingTitle")}>
+          <Icon.AlertTriangle size={12} />
+          {t("listItem.needsVetting")}
+        </div>
+      )}
+    </div>
+  );
+}
