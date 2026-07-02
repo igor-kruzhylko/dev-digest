@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type {
   Agent,
+  AgentSkillLink,
   CreateAgentInput as CreateAgentBody,
   ModelInfo,
   Provider,
@@ -70,5 +71,28 @@ export function useProviderModels(provider: Provider | null | undefined) {
     queryFn: () => api.get<ModelInfo[]>(`/providers/${provider}/models`),
     enabled: !!provider,
     staleTime: 5 * 60_000,
+  });
+}
+
+/** An agent's linked skills, ordered. Powers the Agent editor's Skills tab. */
+export function useAgentSkills(agentId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["agent-skills", agentId],
+    queryFn: () => api.get<AgentSkillLink[]>(`/agents/${agentId}/skills`),
+    enabled: !!agentId,
+  });
+}
+
+/** Set/reorder an agent's linked skills (full-set replace, order = array order). */
+export function useSetAgentSkills() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ agentId, skillIds }: { agentId: string; skillIds: string[] }) =>
+      api.post<AgentSkillLink[]>(`/agents/${agentId}/skills`, { skill_ids: skillIds }),
+    onSuccess: (data, { agentId }) => {
+      qc.setQueryData(["agent-skills", agentId], data);
+      // Linked-skill counts feed the Skills list's "{n} agents" stat.
+      qc.invalidateQueries({ queryKey: ["skills-usage"] });
+    },
   });
 }
