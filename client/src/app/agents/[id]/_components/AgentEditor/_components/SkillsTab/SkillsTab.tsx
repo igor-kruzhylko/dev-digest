@@ -103,7 +103,7 @@ export function SkillsTab({ agent }: { agent: Agent }) {
                   <div style={s.reorder}>
                     <button
                       type="button"
-                      aria-label="Move up"
+                      aria-label={t("skills.moveUp")}
                       style={s.reorderBtn}
                       disabled={attachedIndex === 0 || setSkills.isPending}
                       onClick={() => move(attachedIndex, -1)}
@@ -112,7 +112,7 @@ export function SkillsTab({ agent }: { agent: Agent }) {
                     </button>
                     <button
                       type="button"
-                      aria-label="Move down"
+                      aria-label={t("skills.moveDown")}
                       style={s.reorderBtn}
                       disabled={attachedIndex === linkedOrder.length - 1 || setSkills.isPending}
                       onClick={() => move(attachedIndex, 1)}

@@ -94,7 +94,9 @@
     "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach.",
     "loadError": "Could not load skills.",
     "empty": "No skills yet — create one in the Skills Lab.",
-    "noMatch": "No skills match your search."
+    "noMatch": "No skills match your search.",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

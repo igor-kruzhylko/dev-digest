@@ -135,7 +135,9 @@ const SkillWriteInput = z.object({
   name: z.string().min(1).max(120),
   description: z.string().min(1).max(500),
   type: SkillType,
-  body: z.string().min(1).max(80_000),
+  // Matches the import path's MAX_MARKDOWN_BODY_BYTES (server/src/modules/skills/constants.ts)
+  // so a successfully previewed import never fails validation on save.
+  body: z.string().min(1).max(1_048_576),
   source: SkillSource.optional(), // default 'manual'
   enabled: z.boolean().optional(), // default true (manual); false for imports
   version_label: z.string().max(160).optional(),
