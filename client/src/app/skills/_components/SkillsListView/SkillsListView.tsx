@@ -1,11 +1,12 @@
-/* SkillsList — left column of the master-detail SkillsView: header (search +
-   Add Skill dropdown), the skill cards, loading/error/empty states. */
+/* /skills — Skills list (mirrors AgentsListView). SkillCards in a grid;
+   selecting a skill navigates to the master-detail editor at /skills/:id. */
 "use client";
 
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Dropdown, EmptyState, ErrorState, Skeleton, Icon } from "@devdigest/ui";
+import { AppShell } from "@/components/app-shell";
 import { useSkills, useSkillsUsage, useUpdateSkill } from "@/lib/hooks/skills";
 import { SkillCard } from "../SkillCard";
 import { CreateSkillModal } from "./_components/CreateSkillModal";
@@ -13,7 +14,7 @@ import { ImportSkillDrawer } from "./_components/ImportSkillDrawer";
 import { filterSkills } from "./helpers";
 import { s } from "./styles";
 
-export function SkillsList({ selectedId }: { selectedId: string | null }) {
+export function SkillsListView() {
   const t = useTranslations("skills");
   const router = useRouter();
   const { data: skills, isLoading, isError, refetch } = useSkills();
@@ -32,12 +33,24 @@ export function SkillsList({ selectedId }: { selectedId: string | null }) {
   const list = filterSkills(skills ?? [], search);
 
   return (
-    <>
+    <AppShell crumb={[{ label: t("page.crumbLab") }, { label: t("page.crumbSkills") }]}>
       {creating && <CreateSkillModal onClose={() => setCreating(false)} />}
       {importing && <ImportSkillDrawer onClose={() => setImporting(false)} />}
-      <div style={s.header}>
-        <div style={s.headerRow}>
-          <h1 style={s.h1}>{t("page.heading")}</h1>
+      <div style={s.page}>
+        <div style={s.header}>
+          <div style={s.headerText}>
+            <h1 style={s.h1}>{t("page.heading")}</h1>
+            <p style={s.subtitle}>{t("page.subtitle")}</p>
+          </div>
+          <div style={s.search}>
+            <Icon.Search size={13} style={s.searchIcon} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("page.searchPlaceholder")}
+              style={s.searchInput}
+            />
+          </div>
           <Dropdown
             width={210}
             align="right"
@@ -52,23 +65,12 @@ export function SkillsList({ selectedId }: { selectedId: string | null }) {
             ]}
           />
         </div>
-        <div style={s.search}>
-          <Icon.Search size={13} style={s.searchIcon} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("page.searchPlaceholder")}
-            style={s.searchInput}
-          />
-        </div>
-      </div>
 
-      <div style={s.list}>
         {isLoading && (
-          <div style={s.skeletonStack}>
-            <Skeleton height={90} />
-            <Skeleton height={90} />
-            <Skeleton height={90} />
+          <div style={s.grid}>
+            <Skeleton height={120} />
+            <Skeleton height={120} />
+            <Skeleton height={120} />
           </div>
         )}
         {isError && <ErrorState body={t("page.loadError")} onRetry={() => refetch()} />}
@@ -81,17 +83,20 @@ export function SkillsList({ selectedId }: { selectedId: string | null }) {
             onCta={() => setImporting(true)}
           />
         )}
-        {list.map((sk) => (
-          <SkillCard
-            key={sk.id}
-            skill={sk}
-            active={sk.id === selectedId}
-            agentCount={usageBySkillId.get(sk.id)}
-            onClick={() => router.push(`/skills/${sk.id}`)}
-            onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
-          />
-        ))}
+        {list.length > 0 && (
+          <div style={s.grid}>
+            {list.map((sk) => (
+              <SkillCard
+                key={sk.id}
+                skill={sk}
+                agentCount={usageBySkillId.get(sk.id)}
+                onClick={() => router.push(`/skills/${sk.id}`)}
+                onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
+              />
+            ))}
+          </div>
+        )}
       </div>
-    </>
+    </AppShell>
   );
 }

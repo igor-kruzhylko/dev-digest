@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import messages from "../../../../../../../../../messages/en/skills.json";
+import messages from "../../../../../../../messages/en/skills.json";
 
 const mutateAsync = vi.fn().mockResolvedValue({ id: "sk1", name: "New Skill" });
 const push = vi.fn();

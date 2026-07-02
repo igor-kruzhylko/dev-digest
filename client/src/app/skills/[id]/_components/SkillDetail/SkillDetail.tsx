@@ -1,6 +1,6 @@
-/* SkillDetail — right pane of the master-detail SkillsView. Header (name +
-   type badge + version badge + disabled "Run on evals" placeholder) + Tabs
-   (Config/Preview/Evals/Stats/Versions), tab state in ?tab=. */
+/* SkillDetail — right pane of the /skills/:id editor. Self-contained: header
+   (name + type badge + version badge + disabled "Run on evals" placeholder)
+   + Tabs (Config/Preview/Evals/Stats/Versions), tab state in ?tab=. */
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";

@@ -3,6 +3,7 @@
     "crumbLab": "Skills Lab",
     "crumbSkills": "Skills",
     "heading": "Skills",
+    "subtitle": "Reusable, text-only review rules shared across agents.",
     "addSkill": "Add Skill",
     "searchPlaceholder": "Search skills…",
     "loadError": "Could not load skills.",
@@ -15,10 +16,6 @@
       "title": "No skills yet",
       "body": "Import a skill from a file, a URL, or the community catalog.",
       "cta": "Import from file"
-    },
-    "selectPrompt": {
-      "title": "Select a skill",
-      "body": "Pick a skill on the left to preview its body."
     }
   },
   "detail": {

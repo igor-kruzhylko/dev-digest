@@ -3,7 +3,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Skill } from "@devdigest/shared";
-import messages from "../../../../../../../messages/en/skills.json";
+import messages from "../../../../../messages/en/skills.json";
 import { SkillCard } from "./SkillCard";
 
 afterEach(cleanup);
