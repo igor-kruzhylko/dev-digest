@@ -135,5 +135,3 @@ recommended simple defaults.
 - **Demo PRs** — must populate `pr_files.patch` or `loadDiff` yields an empty diff.
 - **Live LLM variability** — demo runs may vary; deterministic coverage belongs in
   mock-LLM tests, not a brittle live-model gate.
-
-

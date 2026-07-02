@@ -150,6 +150,43 @@ d('Agent Skills binding + injection (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('rejects a cross-workspace single skill link before writing any links', async () => {
+    const app = await appWith();
+    const agent = await createAgent(app, 'Single Cross WS Agent');
+
+    const [otherWs] = await pg.handle.db
+      .insert(t.workspaces)
+      .values({ name: 'other-single-ws' })
+      .returning();
+    const [foreignSkill] = await pg.handle.db
+      .insert(t.skills)
+      .values({
+        workspaceId: otherWs!.id,
+        name: 'Foreign Single Skill',
+        description: 'x',
+        type: 'rubric',
+        source: 'manual',
+        body: 'foreign single body',
+        enabled: true,
+        version: 1,
+      })
+      .returning();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/agents/${agent.id}/skills`,
+      payload: { skill_id: foreignSkill!.id },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('invalid_skill_ids');
+    expect(res.json().error.details.invalid_ids).toEqual([foreignSkill!.id]);
+
+    const links = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/skills` })).json();
+    expect(links).toHaveLength(0);
+
+    await app.close();
+  });
+
   it('promptSkillBodiesForAgent: global-enable filter, in link order', async () => {
     const app = await appWith();
     const agent = await createAgent(app, 'Filter Agent');

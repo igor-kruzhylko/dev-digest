@@ -50,6 +50,7 @@ export function useUpdateSkill() {
     mutationFn: ({ id, patch }: UpdateSkillInput) => api.put<Skill>(`/skills/${id}`, patch),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["skills"] });
+      qc.invalidateQueries({ queryKey: ["skill-versions", data.id] });
       qc.setQueryData(["skill", data.id], data);
     },
   });

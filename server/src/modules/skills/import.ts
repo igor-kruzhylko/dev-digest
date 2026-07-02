@@ -45,9 +45,10 @@ export function parseSkillMarkdown(filename: string, text: string): ParsedSkillM
   const firstParagraph = findFirstParagraph(bodyAfterFence);
 
   const nameFallback = firstHeading ?? stripExtension(filename);
-  const descriptionFallback = firstParagraph ? truncate(firstParagraph, 500) : '';
-
   const name = frontmatter.name?.trim() || nameFallback;
+  const descriptionFallback = firstParagraph
+    ? truncate(firstParagraph, 500)
+    : truncate(name, 500);
   const description = frontmatter.description?.trim() || descriptionFallback;
   const type =
     frontmatter.type && isSkillType(frontmatter.type) ? (frontmatter.type as SkillType) : 'custom';

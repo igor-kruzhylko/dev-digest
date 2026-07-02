@@ -194,7 +194,7 @@ export class SkillsRepository {
         'skill_in_use',
         `Skill is linked to ${linkedAgents.length} agent(s)`,
         409,
-        { agents: linkedAgents },
+        { agents: linkedAgents.map((a) => ({ id: a.agentId, name: a.agentName })) },
       );
     }
 

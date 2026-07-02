@@ -1,5 +1,5 @@
 // gates.mjs — runs the deterministic per-package gates for the packages a change
-// set touches, in parallel. A failing gate becomes a CRITICAL finding. Mirrors
+// set touches, sequentially. A failing gate becomes a CRITICAL finding. Mirrors
 // the cross-platform spawn style of server/scripts/arch.mjs (shell: true, cwd per
 // package). READ-ONLY toward the repo (never runs db:generate / db:migrate).
 //
@@ -63,24 +63,24 @@ function runOne(pkg, gate, cmd) {
 }
 
 export async function runGates(pkgs) {
-  const jobs = [];
+  const results = [];
   for (const pkg of pkgs) {
     if (!existsSync(`${pkg}/node_modules`)) {
-      jobs.push(
-        Promise.resolve({
-          package: pkg,
-          gate: 'install',
-          cmd: '(dependency check)',
-          ok: false,
-          code: 1,
-          outputTail: `node_modules missing in ${pkg}/ — run the package's install (pnpm install / npm install) before reviewing.`,
-        }),
-      );
+      results.push({
+        package: pkg,
+        gate: 'install',
+        cmd: '(dependency check)',
+        ok: false,
+        code: 1,
+        outputTail: `node_modules missing in ${pkg}/ — run the package's install (pnpm install / npm install) before reviewing.`,
+      });
       continue;
     }
-    for (const [gate, cmd] of PKG_GATES[pkg]) jobs.push(runOne(pkg, gate, cmd));
+    for (const [gate, cmd] of PKG_GATES[pkg]) {
+      results.push(await runOne(pkg, gate, cmd));
+    }
   }
-  return Promise.all(jobs);
+  return results;
 }
 
 function toFindings(results) {

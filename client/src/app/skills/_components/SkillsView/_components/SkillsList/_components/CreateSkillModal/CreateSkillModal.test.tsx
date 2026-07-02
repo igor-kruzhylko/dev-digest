@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../../../../../messages/en/skills.json";
 
@@ -32,11 +32,30 @@ describe("CreateSkillModal (smoke)", () => {
     fireEvent.change(screen.getByPlaceholderText("pr-quality-rubric"), {
       target: { value: "test-quality-rubric" },
     });
+    fireEvent.change(screen.getByPlaceholderText("What this skill checks for"), {
+      target: { value: "  Flags missing tests  " },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
 
-    await Promise.resolve();
-    expect(mutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "test-quality-rubric" }),
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "test-quality-rubric",
+          description: "Flags missing tests",
+        }),
+      ),
     );
+  });
+
+  it("keeps submit disabled until a description is provided", () => {
+    renderWithIntl(<CreateSkillModal onClose={() => {}} />);
+
+    const submit = screen.getByRole("button", { name: "Create skill" }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+
+    fireEvent.change(screen.getByPlaceholderText("What this skill checks for"), {
+      target: { value: "Flags missing tests" },
+    });
+    expect(submit.disabled).toBe(false);
   });
 });

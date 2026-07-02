@@ -39,6 +39,8 @@ Entry format: `- YYYY-MM-DD — <fact> / why it matters / how to apply (file:lin
 
 ## Recurring Errors & Fixes
 <!-- errors that keep coming back + the fix -->
+- 2026-07-02 — Skills create/edit UI must enforce the same non-empty fields as `@devdigest/shared` before calling the API: an empty description looked submittable in `CreateSkillModal`, but `POST /skills` rejects `description.min(1)`. Disable submit until trimmed description/body are non-empty and submit the trimmed payload (client/src/app/skills/_components/SkillsView/_components/SkillsList/_components/CreateSkillModal/CreateSkillModal.tsx:24).
+- 2026-07-02 — A body-changing skill update appends `skill_versions`, so `useUpdateSkill` must invalidate `['skill-versions', id]` in addition to `['skills']`/`['skill', id]`; otherwise the Versions tab can stay stale after saving a new body version (client/src/lib/hooks/skills.ts:51).
 - 2026-07-02 — `TS2307: Cannot find module '../../.../messages/en/<ns>.json'` in a deeply-nested `_components/.../Component.test.tsx` — the relative `../` count is easy to miscount by eye once nesting passes ~5 levels (e.g. `app/agents/[id]/_components/AgentEditor/_components/SkillsTab/SkillsTab.test.tsx` needs 8 `../` to reach `client/messages/en/`, not the 6 a quick count suggests). Compute it instead of guessing: `node -e "console.log(require('path').relative('src/app/.../Component.test.tsx', 'messages/en/ns.json'))"` from the package root.
 
 ## Session Notes

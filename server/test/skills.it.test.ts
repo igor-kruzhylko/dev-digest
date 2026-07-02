@@ -195,7 +195,7 @@ d('skills module', () => {
     const body = deleted.json();
     expect(body.error.code).toBe('skill_in_use');
     expect(body.error.details.agents).toEqual(
-      expect.arrayContaining([expect.objectContaining({ agentId: agent.id, agentName: 'Linked Agent' })]),
+      expect.arrayContaining([expect.objectContaining({ id: agent.id, name: 'Linked Agent' })]),
     );
 
     // Cleanup so this skill doesn't pollute other tests' /skills listing counts.

@@ -59,6 +59,7 @@ label: text('label'),   // nullable; "what changed" note shown in the Versions t
 - This is still a schema change because of `skill_versions.label`; the
   pr-self-review migration-drift gate requires the generated migration in the
   same change set.
+
 ## 2. Shared contracts (`@devdigest/shared`, vendored ×2)
 
 In this checkout there is no standalone canonical `shared/contracts/knowledge.ts`
@@ -119,6 +120,7 @@ export const ImportSkillInput = z.object({
 - `SetAgentSkillsInput` keeps the existing `skill_ids` full-set form and
   `skill_id` single-link form. The Agent Skills tab uses `skill_ids` in desired
   order; checked = included in `skill_ids`, unchecked = omitted.
+
 ## 3. Server — skills module
 
 New Fastify module `server/src/modules/skills/` (mirrors the `agents` triple):
@@ -223,6 +225,7 @@ the client reads the `File` via `FileReader.readAsDataURL` and strips the prefix
   records ordered linked skill ids. For this iteration, past run reproducibility
   is guaranteed by persisted `run_traces.prompt_assembly.skills`; exact future
   replay of old agent versions after skill edits is an open question (§15).
+
 ## 6. Run-executor wiring (makes skills affect reviews)
 
 In `server/src/modules/reviews/run-executor.ts`, `runOneAgent`, before calling
@@ -253,6 +256,7 @@ const outcome = await reviewPullRequest({
   omitted → the trace block is absent (`TraceBody` guards on `!= null`).
 - Added tokens are represented by higher whole-run `tokens_in`. Per-block token
   attribution is out of scope.
+
 ## 7. Client
 
 Data access through `src/lib/hooks/*` over `src/lib/api.ts` (components never
@@ -441,6 +445,7 @@ Extend the idempotent seed (guard each insert by name/number, like today):
   **Preview** Markdown render, **Versions** list + Restore, **Stats** usage render.
 - Gates: `pnpm -C server typecheck && run arch`, `pnpm -C client typecheck && test`.
   Contract copies must stay byte-identical (drift gate).
+
 ## 12. Out of scope
 
 - Import from **URL** and **community catalog** (copy exists in `skills.json` but
@@ -481,6 +486,7 @@ Extend the idempotent seed (guard each insert by name/number, like today):
 8. **pr-self-review** (auto-invoke still disabled): run it manually over this
    change set → it pulls **both** frontend and backend skills; resolve any
    findings before pushing.
+
 ## 14. Resolved decisions
 
 - **Nav in vendored UI** — RESOLVED (approved): edit `vendor/ui/nav.ts` in place to

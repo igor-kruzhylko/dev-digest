@@ -129,19 +129,7 @@ export class AgentsService {
   ): Promise<AgentSkillLink[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
-    if (skillIds.length > 0) {
-      const workspaceSkills = await this.container.skillsRepo.list(workspaceId);
-      const workspaceSkillIds = new Set(workspaceSkills.map((s) => s.id));
-      const invalidIds = skillIds.filter((id) => !workspaceSkillIds.has(id));
-      if (invalidIds.length > 0) {
-        throw new AppError(
-          'invalid_skill_ids',
-          `Skill id(s) not found in this workspace: ${invalidIds.join(', ')}`,
-          400,
-          { invalid_ids: invalidIds },
-        );
-      }
-    }
+    await this.assertSkillIdsInWorkspace(workspaceId, skillIds);
     await this.repo.setSkills(agentId, skillIds);
     return this.skillLinks(agentId);
   }
@@ -155,10 +143,27 @@ export class AgentsService {
   ): Promise<AgentSkillLink[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
+    await this.assertSkillIdsInWorkspace(workspaceId, [skillId]);
     const existing = await this.repo.linkedSkills(agentId);
     const resolvedOrder = order ?? existing.length;
     await this.repo.linkSkill(agentId, skillId, resolvedOrder);
     return this.skillLinks(agentId);
+  }
+
+  private async assertSkillIdsInWorkspace(workspaceId: string, skillIds: string[]): Promise<void> {
+    if (skillIds.length === 0) return;
+
+    const workspaceSkills = await this.container.skillsRepo.list(workspaceId);
+    const workspaceSkillIds = new Set(workspaceSkills.map((s) => s.id));
+    const invalidIds = skillIds.filter((id) => !workspaceSkillIds.has(id));
+    if (invalidIds.length === 0) return;
+
+    throw new AppError(
+      'invalid_skill_ids',
+      `Skill id(s) not found in this workspace: ${invalidIds.join(', ')}`,
+      400,
+      { invalid_ids: invalidIds },
+    );
   }
 
   /**

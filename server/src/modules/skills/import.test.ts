@@ -85,6 +85,21 @@ describe('parseSkillMarkdown', () => {
     expect(result.name).toBe('my-skill');
   });
 
+  it('falls back to the derived name for description when there is no paragraph', () => {
+    const result = parseSkillMarkdown('heading-only.md', '# Heading Only');
+    expect(result.name).toBe('Heading Only');
+    expect(result.description).toBe('Heading Only');
+  });
+
+  it('uses frontmatter name as the description fallback when the body has no paragraph', () => {
+    const result = parseSkillMarkdown(
+      'fallback.md',
+      ['---', 'name: Named Skill', '---', '# Heading Only'].join('\n'),
+    );
+    expect(result.name).toBe('Named Skill');
+    expect(result.description).toBe('Named Skill');
+  });
+
   it('ignores an unrecognized frontmatter type and falls back to custom', () => {
     const text = ['---', 'type: not-a-real-type', '---', '# Heading', 'Body text.'].join('\n');
     const result = parseSkillMarkdown('x.md', text);

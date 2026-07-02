@@ -20,13 +20,19 @@ export function CreateSkillModal({ onClose }: { onClose: () => void }) {
   const [body, setBody] = React.useState(t("create.defaultBody"));
 
   const typeOptions = TYPE_OPTIONS.map((v) => ({ value: v, label: t(`listItem.type.${v}`) }));
+  const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
+  const trimmedBody = body.trim();
+  const canSubmit = trimmedDescription.length > 0 && trimmedBody.length > 0 && !create.isPending;
 
   const submit = async () => {
+    if (!canSubmit) return;
+
     const skill = await create.mutateAsync({
-      name: name.trim() || t("create.defaultName"),
-      description,
+      name: trimmedName || t("create.defaultName"),
+      description: trimmedDescription,
       type,
-      body,
+      body: trimmedBody,
     });
     onClose();
     router.push(`/skills/${skill.id}?tab=config`);
@@ -43,7 +49,7 @@ export function CreateSkillModal({ onClose }: { onClose: () => void }) {
           <Button kind="ghost" onClick={onClose}>
             {t("create.cancel")}
           </Button>
-          <Button kind="primary" icon="Plus" onClick={submit} disabled={create.isPending}>
+          <Button kind="primary" icon="Plus" onClick={submit} disabled={!canSubmit}>
             {create.isPending ? t("create.creating") : t("create.create")}
           </Button>
         </div>
@@ -53,7 +59,7 @@ export function CreateSkillModal({ onClose }: { onClose: () => void }) {
         <FormField label={t("create.fields.name")} required>
           <TextInput value={name} onChange={setName} placeholder={t("create.fields.namePlaceholder")} />
         </FormField>
-        <FormField label={t("create.fields.description")}>
+        <FormField label={t("create.fields.description")} required>
           <TextInput
             value={description}
             onChange={setDescription}
@@ -63,7 +69,7 @@ export function CreateSkillModal({ onClose }: { onClose: () => void }) {
         <FormField label={t("create.fields.type")}>
           <SelectInput value={type} onChange={(v) => setType(v as SkillType)} options={typeOptions} />
         </FormField>
-        <FormField label={t("create.fields.body")}>
+        <FormField label={t("create.fields.body")} required>
           <Textarea
             value={body}
             onChange={setBody}

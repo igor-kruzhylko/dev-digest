@@ -30,6 +30,7 @@ so a change must be applied to every copy by hand. Edit contracts here, not at c
 ## Gotchas (what you can't infer from the code)
 - Migrations do NOT run on boot: `cd server && pnpm db:migrate` (else `relation ... does not exist`).
 - Boot reaper assumes a SINGLE API instance per DB (breaks with replicas).
+- On this Windows box, if `apply_patch` gets `Access is denied`, use PowerShell exact replacements: `Get-Content -Raw -LiteralPath ...` then `Set-Content -Encoding utf8`.
 
 ## Do-not-touch
 - `server/clones/**` — cloned THIRD-PARTY repos (the app's input data). Never edit, never index/search.
