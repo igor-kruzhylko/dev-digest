@@ -45,7 +45,11 @@ export function SelectInput({
           const v = typeof o === "string" ? o : o.value;
           const l = typeof o === "string" ? o : o.label;
           return (
-            <option key={v} value={v}>
+            <option
+              key={v}
+              value={v}
+              style={{ color: "var(--text-primary)", background: "var(--bg-elevated)" }}
+            >
               {l}
             </option>
           );
