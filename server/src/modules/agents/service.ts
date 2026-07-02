@@ -8,6 +8,7 @@ import type {
   Provider,
   UpdateAgentInput,
 } from '@devdigest/shared';
+import { AppError } from '../../platform/errors.js';
 import { AgentsRepository } from './repository.js';
 import { toAgentDto, toAgentVersionDto } from './helpers.js';
 
@@ -117,7 +118,9 @@ export class AgentsService {
 
   /**
    * Set / reorder the agent's linked skills. If `skillIds` is provided, replaces
-   * the whole set in that order. Returns the resulting ordered links.
+   * the whole set in that order. Returns the resulting ordered links. Every
+   * submitted skill id must belong to the SAME workspace as the agent — reject
+   * cross-workspace or unknown ids before writing any links.
    */
   async setSkills(
     workspaceId: string,
@@ -126,6 +129,19 @@ export class AgentsService {
   ): Promise<AgentSkillLink[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
+    if (skillIds.length > 0) {
+      const workspaceSkills = await this.container.skillsRepo.list(workspaceId);
+      const workspaceSkillIds = new Set(workspaceSkills.map((s) => s.id));
+      const invalidIds = skillIds.filter((id) => !workspaceSkillIds.has(id));
+      if (invalidIds.length > 0) {
+        throw new AppError(
+          'invalid_skill_ids',
+          `Skill id(s) not found in this workspace: ${invalidIds.join(', ')}`,
+          400,
+          { invalid_ids: invalidIds },
+        );
+      }
+    }
     await this.repo.setSkills(agentId, skillIds);
     return this.skillLinks(agentId);
   }

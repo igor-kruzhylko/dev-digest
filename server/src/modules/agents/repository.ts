@@ -240,4 +240,20 @@ export class AgentsRepository {
       }
     });
   }
+
+  /**
+   * The prompt-ready skill bodies for an agent: linked skills (via
+   * `agent_skills`) filtered to globally-`enabled` ones, in link `order`. This
+   * is the single global-enable + link-presence filter the run-executor needs —
+   * a disabled skill contributes nothing even if still linked.
+   */
+  async promptSkillBodiesForAgent(agentId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ body: t.skills.body })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(and(eq(t.agentSkills.agentId, agentId), eq(t.skills.enabled, true)))
+      .orderBy(asc(t.agentSkills.order));
+    return rows.map((r) => r.body);
+  }
 }
